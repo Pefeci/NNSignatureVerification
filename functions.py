@@ -111,7 +111,7 @@ def image_for_local(image):
 
 #Vlnková transformace
 def wavelet_transformation(image):
-    coeffs = pywt.dwt2(data=image, wavelet='bior1.3') # zkus všechny další experiment: haar, db2, bior1.3, sym, coif (https://pywavelets.readthedocs.io/en/latest/regression/wavelet.html)
+    coeffs = pywt.dwt2(data=image, wavelet='haar') # bior1.3 zkus všechny další experiment: haar, db2, bior1.3, sym, coif (https://pywavelets.readthedocs.io/en/latest/regression/wavelet.html)
     cA, (cH, cV, cD) = coeffs
 
     #normalizace
@@ -186,14 +186,18 @@ def calculate_center_of_mass(image):
     center_of_mass_first_half_normalized = np.array([center_of_mass_first_half_x / half_width, center_of_mass_first_half_y / height ])
     center_of_mass_second_half_normalized = np.array([center_of_mass_second_half_x / half_width, center_of_mass_second_half_y / height])
 
+    center_of_mass_normalized = np.concatenate([center_of_mass_first_half_normalized, center_of_mass_second_half_normalized])
 
-    return center_of_mass_first_half_normalized, center_of_mass_second_half_normalized
+    #return center_of_mass_first_half_normalized, center_of_mass_second_half_normalized
+    return center_of_mass_normalized
 
 def calculate_normalized_shape(image):
     image = image[:,:,0]
     img_area = np.sum(image == 0)
     pixel_indieces = np.where(image == 0)
     rows, cols = pixel_indieces
+    if(len(rows) == 0 or len(cols)):
+        return 0
     bounding_box_area = (max(rows) - min(rows) + 1) * (max(cols) - min(cols) + 1)
     normalized_shape = img_area / bounding_box_area
     return normalized_shape
@@ -224,26 +228,36 @@ def six_fold_surface(image):
         features = []
         pixel_indieces = np.where(part == 0)
         rows, cols = pixel_indieces
-        boundingbox_width = [min(cols), max(cols)]  # width
-        boundingbox_height = [min(rows), max(rows)] #height
-        bounding_box = [boundingbox_width[1] - boundingbox_width[0], boundingbox_height[1] - boundingbox_height[0]]
-        features.append(bounding_box)
-        print(f"Width of bound {boundingbox_width}")
-        print(f"Height of bound {boundingbox_height}")
-        Mx = cv2.moments(part[boundingbox_height[0]: boundingbox_height[1],boundingbox_width[0]:boundingbox_width[1]])
-        center_of_mass_x = Mx['m10'] / Mx['m00'] if Mx['m00'] != 0 else 0
-        center_of_mass_y = Mx['m01'] / Mx['m00'] if Mx['m00'] != 0 else 0
-        print(f"Mass = {center_of_mass_x} x {center_of_mass_y}")
-        area_above_center = np.sum(part[boundingbox_height[0]:(boundingbox_height[0] + int(center_of_mass_y)), boundingbox_width[0]:boundingbox_width[1]] == 0)
-        area_bellow_center = np.sum(part[(boundingbox_height[0] + int(center_of_mass_y)):boundingbox_height[1], boundingbox_width[0]:boundingbox_width[1]] == 0)
-        print(f"Bellow {area_bellow_center} and Above {area_above_center}")
-        #show_single_image(part[boundingbox_height[0]:(boundingbox_height[0] + int( center_of_mass_y)), boundingbox_width[0]:boundingbox_width[1]])
-        #show_single_image(part[(boundingbox_height[0] + int(center_of_mass_y)):boundingbox_height[1], boundingbox_width[0]:boundingbox_width[1]])
-        center_of_mass_x = center_of_mass_x / (boundingbox_width[1] - boundingbox_width[0]) #normalized
-        center_of_mass_y = center_of_mass_y / (boundingbox_height[1] - boundingbox_height[0])
-        features.append([center_of_mass_x, center_of_mass_y])
-        features.append([area_bellow_center, area_above_center])
-        all_features.append(features)
+        if (len(rows) == 0 or len(rows) == 0):
+            features.append([0,0])
+            features.append([0,0])
+            features.append([0,0])
+            all_features.append(features)
+        else:
+            boundingbox_width = [min(cols), max(cols)]  # width
+            boundingbox_height = [min(rows), max(rows)] #height
+            bounding_box = [boundingbox_width[1] - boundingbox_width[0] + 1, boundingbox_height[1] - boundingbox_height[0] + 1]
+            features.append(bounding_box)
+            #print(f"Width of bound {boundingbox_width}")
+            #print(f"Height of bound {boundingbox_height}")
+            Mx = cv2.moments(part[boundingbox_height[0]: boundingbox_height[1],boundingbox_width[0]:boundingbox_width[1]])
+            center_of_mass_x = Mx['m10'] / Mx['m00'] if Mx['m00'] != 0 else 0
+            center_of_mass_y = Mx['m01'] / Mx['m00'] if Mx['m00'] != 0 else 0
+            #print(f"Mass = {center_of_mass_x} x {center_of_mass_y}")
+            area_above_center = np.sum(part[boundingbox_height[0]:(boundingbox_height[0] + int(center_of_mass_y)), boundingbox_width[0]:boundingbox_width[1]] == 0)
+            area_bellow_center = np.sum(part[(boundingbox_height[0] + int(center_of_mass_y)):boundingbox_height[1], boundingbox_width[0]:boundingbox_width[1]] == 0)
+            #print(f"Bellow {area_bellow_center} and Above {area_above_center}")
+            #show_single_image(part[boundingbox_height[0]:(boundingbox_height[0] + int( center_of_mass_y)), boundingbox_width[0]:boundingbox_width[1]])
+            #show_single_image(part[(boundingbox_height[0] + int(center_of_mass_y)):boundingbox_height[1], boundingbox_width[0]:boundingbox_width[1]])
+            #center_of_mass_x = center_of_mass_x / (boundingbox_width[1] - boundingbox_width[0]) #normalized
+            #center_of_mass_y = center_of_mass_y / (boundingbox_height[1] - boundingbox_height[0])
+
+            center_of_mass_x = center_of_mass_x / float(bounding_box[0])  # normalized
+            center_of_mass_y = center_of_mass_y / float(bounding_box[1])
+
+            features.append([center_of_mass_x, center_of_mass_y])
+            features.append([area_bellow_center, area_above_center])
+            all_features.append(features)
 
     return all_features
 
@@ -272,7 +286,7 @@ def visualize_with_shap(image, model):
 
 def add_features(data, isPair=True, type="strokes"):
     feature = []
-
+    i = 0 #DEBUG
     if type == "strokes":
         if isPair:
             for pair in data:
@@ -285,10 +299,44 @@ def add_features(data, isPair=True, type="strokes"):
                 wavelet1 = wavelet_transformation(pair[0])
                 wavelet2 = wavelet_transformation(pair[1])
                 feature.append([wavelet1, wavelet2])
+    elif type == "tri_shape":
+        if isPair:
+            for pair in data:
+                mass1 = calculate_center_of_mass(pair[0])
+                mass2 = calculate_center_of_mass(pair[1])
+                norm1 = calculate_normalized_shape(pair[0])
+                norm2 = calculate_normalized_shape(pair[1])
+                aspect1 = calculate_aspect_ratio(pair[0])
+                aspect2 = calculate_aspect_ratio(pair[1])
+                #print(f"mass1: {mass1}, norm1: {norm1}, aspect1: {aspect1} ")
+                #print(f"mass2: {mass2}, norm1: {norm2}, aspect2: {aspect2} ")
+                feature.append([[mass1[0],mass1[1],mass1[2],mass1[3], norm1, aspect1],
+                                [mass2[0],mass2[1],mass2[2],mass2[3], norm2, aspect2]])
+    elif type == "tri_surface":
+        if isPair:
+            for pair in data:
+                tri_surface1 = calculate_tri_surface_area(pair[0])
+                tri_surface2 = calculate_tri_surface_area(pair[1])
+                feature.append([[tri_surface1[0], tri_surface1[1], tri_surface1[2]],
+                                [tri_surface2[0], tri_surface2[1], tri_surface2[2]]])
+    elif type == "six_fold":
+        if isPair:
+            for pair in data:
+                print(i)
+                i += 1
+                six_fold1 = six_fold_surface(pair[0])
+                six_fold2 = six_fold_surface(pair[1])
+                six_fold1 = np.concatenate((six_fold1[0][0], six_fold1[0][1], six_fold1[0][2],
+                                            six_fold1[1][0], six_fold1[1][1], six_fold1[1][2],
+                                            six_fold1[2][0], six_fold1[2][1], six_fold1[2][2]))
+                six_fold2 = np.concatenate((six_fold2[0][0], six_fold2[0][1], six_fold2[0][2],
+                                            six_fold2[1][0], six_fold2[0][1], six_fold2[1][2],
+                                            six_fold2[2][0], six_fold2[2][1], six_fold2[2][2]))
+                feature.append([six_fold1, six_fold2])
 
-
-    print(len(feature))
-    return np.array(feature)
+    feature = np.array(feature)
+    print(f"feature shape: {feature.shape}")
+    return feature
 
 
 

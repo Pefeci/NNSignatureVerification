@@ -285,11 +285,27 @@ def snn_model(image_shape=(100, 100, 1)):
 
     # Pro nahrání dfalších feature .... obdobně nezapomenout upravit input na konci teto funkce p5i compile
     # WAVELET
-    feature1 = Input(shape=(69300,), name='feature1')
-    feature2 = Input(shape=(69300,), name='feature2')
-    dense_wavelet1 = Dense(128, activation="relu", name="dense_feat1")(feature1)
-    dense_wavelet2 = Dense(128, activation="relu", name="dense_feat2")(feature2)
-    concat = Concatenate()([preprocessed_image1, preprocessed_image2, dense_wavelet1, dense_wavelet2])
+    # feature1 = Input(shape=(69300,), name="feature1")
+    # feature2 = Input(shape=(69300,), name="feature2")
+    # dense_wavelet1 = Dense(128, activation="relu", name="dense_feat1")(feature1)
+    # dense_wavelet2 = Dense(128, activation="relu", name="dense_feat2")(feature2)
+    # concat = Concatenate()([preprocessed_image1, preprocessed_image2, dense_wavelet1, dense_wavelet2])
+
+
+    # Mass, norm shape, aspect
+    # feature1 = Input(shape=(6,), name="feature1")
+    # feature2 = Input(shape=(6,), name="feature2")
+    # concat = Concatenate()([preprocessed_image1, preprocessed_image2, feature1, feature2])
+
+    #Tri surface
+    # feature1 = Input(shape=(3,), name="feature1")
+    # feature2 = Input(shape=(3,), name="feature2")
+    # concat = Concatenate()([preprocessed_image1, preprocessed_image2, feature1, feature2])
+
+    #Six folder
+    feature1 = Input(shape=(18), name="feature1")
+    feature2 = Input(shape=(18), name="feature2")
+    concat = Concatenate()([preprocessed_image1, preprocessed_image2, feature1, feature2])
 
 
     # Určení vzdálenosti od dvou obrázků
