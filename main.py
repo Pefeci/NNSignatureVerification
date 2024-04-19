@@ -115,10 +115,16 @@ def cnn_train_augmented(epochs = 100, batch_size = 32, img_width = 150, img_heig
     print('\n\n\n\nAAAAAALLL DONE')
 
 def snn_train(epochs = 100, batch_size = 32, img_width = 150, img_height = 150, dataset='cedar', size=2000, type=None):
-    SNNMODEL = model.snn_model(image_shape=(img_width, img_height, CHANNELS))
+
     data_pairs, data_labels = loader.loader_for_snn(image_width=img_width, image_height=img_height, size=size)
     if type is not None:
         feature = functions.add_features(data_pairs, type=type)
+        if type == "wavelet":
+            SNNMODEL = model.snn_model(image_shape=(img_width, img_height, CHANNELS), feature_shape=feature.shape[2], feature_type=type)
+        else:
+            SNNMODEL = model.snn_model(image_shape=(img_width, img_height, CHANNELS), feature_type=type)
+    else:
+        SNNMODEL = model.snn_model(image_shape=(img_width, img_height, CHANNELS))
 
 
     hist = SNNMODEL.fit(

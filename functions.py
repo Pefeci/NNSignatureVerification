@@ -21,10 +21,11 @@ def show_single_image(img):
 
 
 #Euclidan distance
+@tf.function
 def euclidan_distance(vectors):
-    assert len(vectors) == 2, 'needs exactly 2 vectors but %d was give' % len(vectors)
     x,y = vectors
-    return K.sqrt(K.sum(K.square(x - y), axis=1, keepdims=True))
+    sum_square = K.sum(K.square(x - y), axis=1, keepdims=True)
+    return K.sqrt(K.maximum(sum_square, K.epsilon()))
 
 def euclidan_dist_output_shape(shapes):
     shape1, shape2 = shapes
@@ -196,7 +197,7 @@ def calculate_normalized_shape(image):
     img_area = np.sum(image == 0)
     pixel_indieces = np.where(image == 0)
     rows, cols = pixel_indieces
-    if(len(rows) == 0 or len(cols)):
+    if(len(rows) == 0 or len(cols) == 0):
         return 0
     bounding_box_area = (max(rows) - min(rows) + 1) * (max(cols) - min(cols) + 1)
     normalized_shape = img_area / bounding_box_area
@@ -237,10 +238,10 @@ def six_fold_surface(image):
             boundingbox_width = [min(cols), max(cols)]  # width
             boundingbox_height = [min(rows), max(rows)] #height
             bounding_box = [boundingbox_width[1] - boundingbox_width[0] + 1, boundingbox_height[1] - boundingbox_height[0] + 1]
-            features.append(bounding_box)
+
             #print(f"Width of bound {boundingbox_width}")
             #print(f"Height of bound {boundingbox_height}")
-            Mx = cv2.moments(part[boundingbox_height[0]: boundingbox_height[1],boundingbox_width[0]:boundingbox_width[1]])
+            Mx = cv2.moments(part[boundingbox_height[0]: boundingbox_height[1], boundingbox_width[0]:boundingbox_width[1]])
             center_of_mass_x = Mx['m10'] / Mx['m00'] if Mx['m00'] != 0 else 0
             center_of_mass_y = Mx['m01'] / Mx['m00'] if Mx['m00'] != 0 else 0
             #print(f"Mass = {center_of_mass_x} x {center_of_mass_y}")
@@ -251,11 +252,20 @@ def six_fold_surface(image):
             #show_single_image(part[(boundingbox_height[0] + int(center_of_mass_y)):boundingbox_height[1], boundingbox_width[0]:boundingbox_width[1]])
             #center_of_mass_x = center_of_mass_x / (boundingbox_width[1] - boundingbox_width[0]) #normalized
             #center_of_mass_y = center_of_mass_y / (boundingbox_height[1] - boundingbox_height[0])
-
-            center_of_mass_x = center_of_mass_x / float(bounding_box[0])  # normalized
-            center_of_mass_y = center_of_mass_y / float(bounding_box[1])
-
+            #DLE BOUNDING BOXU
+            #area_above_center /= ((int(center_of_mass_y) + boundingbox_height[0]) * bounding_box[0]) # normalize
+            #area_bellow_center /= ((boundingbox_height[1] - (int(center_of_mass_y) + boundingbox_height[0])) * bounding_box[0])
+            #DLE PARTAJE
+            area_above_center /= ((boundingbox_height[0]+int(center_of_mass_y)) * part.shape[1])
+            area_bellow_center /= ((part.shape[0] - (boundingbox_height[0]+int(center_of_mass_y))) * bounding_box[0])
+            center_of_mass_x = center_of_mass_x / (bounding_box[0]) #normalized
+            center_of_mass_y = center_of_mass_y / (bounding_box[1])
+            bounding_box[0] /= part.shape[1] #normalize
+            bounding_box[1] /= part.shape[0]
+            features.append(bounding_box)
             features.append([center_of_mass_x, center_of_mass_y])
+            #print(f"Bellow {area_bellow_center} and Above {area_above_center}")
+
             features.append([area_bellow_center, area_above_center])
             all_features.append(features)
 
@@ -291,7 +301,9 @@ def add_features(data, isPair=True, type="strokes"):
         if isPair:
             for pair in data:
                 stroke1 = get_image_strokes(pair[0])
+                stroke1 /= 1000
                 stroke2 = get_image_strokes(pair[1])
+                stroke2 /= 1000
                 feature.append([stroke1,stroke2])
     elif type == "wavelet":
         if isPair:
