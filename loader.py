@@ -22,17 +22,31 @@ from PIL import Image
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-IMAGE_TYPES = ['jpeg', 'png', 'bmp', 'png']
 DATASET_NUM_CLASSES = {
-    'cedar': 55,
-    'test':1,
+    "cedar": 55,
+    "hindi": 160,
+    "bengali": 100,
+    "test": 1,
+    "GDPS": 4000,
+    "dutch": 10,
+    "chinese": 10,
+    "all": 0,
+    "czech": 0,
 }
 
 
-# DATASET_SIGNATURES_PER_PERSON = {
-#     'cedar_org': 24,
-#     'cedar_forg': 24,
-# }
+DATASET_SIGNATURES_PER_PERSON = {
+    "cedar_org": 24,
+    "cedar_forg": 24,
+    "bengali_org": 24,
+    "bengali_forg": 30,
+    "hindi_org": 24,
+    "hindi_forg": 30,
+    "GDPS_org": 24,
+    "GDPS_forg": 30,
+    "dutch_org": 24,
+    "chinese_org": 24,
+}
 
 
 # Vizualizace dat:
@@ -54,7 +68,7 @@ def plot_images(image_array, image_array_label=[], num_column=5, title='Images i
 
 
 # Loader z cesty
-def create_for_tr_ts_val_data(data_dir, dataset='cedar'):
+def create_for_tr_ts_val_data(data_dir, dataset="cedar"):
     num_classes = DATASET_NUM_CLASSES[dataset]
     images = glob.glob(data_dir + '/*.png')
     num_of_signatures = int(len(images) / num_classes)  # this only works with Cedar
@@ -75,20 +89,139 @@ def create_for_tr_ts_val_data(data_dir, dataset='cedar'):
     return train_data, test_data, val_data
 
 
-def create_data(data_dir, dataset='cedar'):
+def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
+    is_all = False
     num_classes = DATASET_NUM_CLASSES[dataset]
-    images = glob.glob(data_dir + '/*.png')
-    num_of_signatures = int(len(images) / num_classes)  # this only works with Cedar
-    if num_of_signatures == 0: num_of_signatures = 1
-    #print(images)
     persons = []
     index = 0
-    for person in range(num_classes):
-        signatures = []
-        for signature in range(num_of_signatures):
-            signatures.append(images[index])
-            index += 1
-        persons.append(signatures)
+    if dataset == "all":
+        if gdps_size is None:
+            gdps_size = 200
+        is_all = True
+        dataset = "cedar"
+        num_classes = DATASET_NUM_CLASSES[dataset]
+
+    if dataset == "cedar":
+        if is_genuine:
+            images = glob.glob(data_dir + '/cedar/genuine/*.png')
+        else:
+            images = glob.glob(data_dir + '/cedar/forgery/*.png')
+        num_of_signatures = int(len(images) / num_classes)  # this only works with Cedar
+        if num_of_signatures == 0: num_of_signatures = 1
+        #print(images)
+        # index = 0
+        for person in range(num_classes):
+            signatures = []
+            for signature in range(num_of_signatures):
+                signatures.append(images[index])
+                index += 1
+            persons.append(signatures)
+        if is_all:
+            dataset = "bengali"
+            num_classes = DATASET_NUM_CLASSES[dataset]
+            index = 0
+
+    if dataset == "bengali":
+        images = glob.glob(data_dir + '/bengali/*/*.tif')
+        for person in range(num_classes):
+            if is_genuine:
+                num_of_signatures = DATASET_SIGNATURES_PER_PERSON["bengali_org"]
+                index += 30
+            else:
+                num_of_signatures = DATASET_SIGNATURES_PER_PERSON["bengali_forg"]
+            signatures = []
+            for signature in range(num_of_signatures):
+                signatures.append(images[index])
+                index += 1
+            if not is_genuine:
+                index += 24
+            persons.append(signatures)
+        if is_all:
+            dataset = "dutch"
+            num_classes = DATASET_NUM_CLASSES[dataset]
+            index = 0
+
+    if dataset == "dutch":
+        if is_genuine:
+            images = glob.glob(data_dir + '/dutch/genuine/*.PNG')
+            for person in range(num_classes):
+                signatures = []
+                for signature in range(DATASET_SIGNATURES_PER_PERSON["dutch_org"]):
+                    signatures.append(images[index])
+                    index += 1
+                persons.append(signatures)
+        else:
+            for person in range(num_classes):
+                images = glob.glob(data_dir + "/dutch/forgery/" + str(person + 1) + "/*.PNG")
+                persons.append(images)
+        if is_all:
+            dataset = "hindi"
+            num_classes = DATASET_NUM_CLASSES[dataset]
+            index = 0
+
+    if dataset == "hindi":
+        images = glob.glob(data_dir + '/hindi/*/*.tif')
+        for person in range(num_classes):
+            if is_genuine:
+                num_of_signatures = DATASET_SIGNATURES_PER_PERSON["hindi_org"]
+                index += 30
+            else:
+                num_of_signatures = DATASET_SIGNATURES_PER_PERSON["hindi_forg"]
+            signatures = []
+            for signature in range(num_of_signatures):
+                signatures.append(images[index])
+                index += 1
+            if not is_genuine:
+                index += 24
+            persons.append(signatures)
+        if is_all:
+            dataset = "chinese"
+            num_classes = DATASET_NUM_CLASSES[dataset]
+            index = 0
+
+    if dataset == "chinese":
+        if is_genuine:
+            images = glob.glob(data_dir + '/chinese/genuine/*.PNG')
+            for person in range(num_classes):
+                signatures = []
+                for signature in range(DATASET_SIGNATURES_PER_PERSON["dutch_org"]):
+                    signatures.append(images[index])
+                    index += 1
+                persons.append(signatures)
+        else:
+            for person in range(num_classes):
+                images = glob.glob(data_dir + "/chinese/forgery/" + str(person + 1) + "/*.PNG")
+                persons.append(images)
+        if is_all:
+            dataset = "GDPS"
+            num_classes = DATASET_NUM_CLASSES[dataset]
+            index = 0
+
+    if dataset == "GDPS":
+        images = glob.glob(data_dir + '/GDPS/*/*.jpg')
+        for person in range(num_classes):
+            if is_genuine:
+                num_of_signatures = DATASET_SIGNATURES_PER_PERSON["hindi_org"]
+            else:
+                index += 24
+                num_of_signatures = DATASET_SIGNATURES_PER_PERSON["hindi_forg"]
+            signatures = []
+            for signature in range(num_of_signatures):
+                signatures.append(images[index])
+                index += 1
+            if is_genuine:
+                index += 30
+            persons.append(signatures)
+            if gdps_size is not None:
+                if person == gdps_size - 1:
+                    break
+        if is_all:
+            dataset = "czech"
+            num_classes = DATASET_NUM_CLASSES[dataset]
+            index = 0
+
+    if dataset == "czech":
+        pass
     return persons
 
 
@@ -261,14 +394,12 @@ def combine_orig_forg(orig_data, forg_data, orig_labels, forg_labels, shuffle=Tr
 # CNN Loader
 def loader_for_cnn(data_dir="data", image_width=150, image_height=150, dataset='cedar', augmented=False, size=None):
 
-    path_to_orig = data_dir +'/genuine'
-    path_to_forg = data_dir +'/forgery'
 
     start_time = time.time()
 
     # THIS IS CURRENT :]
-    orig_data = create_data(path_to_orig, dataset=dataset)
-    forg_data = create_data(path_to_forg, dataset=dataset)
+    orig_data = create_data(data_dir, dataset=dataset, is_genuine=True)
+    forg_data = create_data(data_dir, dataset=dataset, is_genuine=False)
     print(f'ORIG DATA: {len(orig_data)}')
     print(f'FORG DATA: {len(forg_data)}')
     orig_data, orig_labels = convert_array_to_image_labels(orig_data, genuine=True, augmented=augmented, size=size)
@@ -385,11 +516,11 @@ def make_pairs(orig_data, forg_data):
     print(len(data_pairs))
     print(len(label_pairs))
     print('testing accuracy')
-    # for i in range(5):
-    #     num = np.random.randint(0, len(data_pairs))
-    #     testing_pair = data_pairs[num]
-    #     print(len(testing_pair))
-    #     print(f'{testing_pair[0]} , {testing_pair[1]} = {label_pairs[num]}')
+    for i in range(5):
+        num = np.random.randint(0, len(data_pairs))
+        testing_pair = data_pairs[num]
+        print(len(testing_pair))
+        print(f'{testing_pair[0]} , {testing_pair[1]} = {label_pairs[num]}')
     return data_pairs, label_pairs
 
 
@@ -448,17 +579,13 @@ def visualize_snn_pair_sample(pair_array, label_array, title='Pair sample', nume
 
 
 def loader_for_snn(data_dir='data', train_size=6000, val_size=1500, test_size=500, image_width=200, image_height=200,
-                   dataset='cedar', size=4000):
-    path_to_orig = data_dir + '/genuine'
-    path_to_forg = data_dir + '/forgery'
+                   dataset='cedar', size=4000, gdps_size=None):
 
-    print(path_to_orig)
-    print(path_to_forg)
 
     start_time = time.time()
 
-    orig_data = create_data(path_to_orig, dataset=dataset)
-    forg_data = create_data(path_to_forg, dataset=dataset)
+    orig_data = create_data(data_dir, dataset=dataset, is_genuine=True, gdps_size=gdps_size)
+    forg_data = create_data(data_dir, dataset=dataset, is_genuine=False, gdps_size=gdps_size)
     print(f'ORIG : {len(orig_data)}')
     print(f'FORG : {len(forg_data)}')
 

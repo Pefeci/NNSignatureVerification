@@ -40,6 +40,7 @@ CHANNELS = 1
 #LABELS = np.array(["Forged", "Genuine"])
 #BATCH_SIZE = 32
 #EPOCH_SIZE = 10
+DATASET = ["cedar", "chinese", "dutch", "hindi", "bengali", "GDPS", "all"]
                       
 image_shape = (None, 100, 100, 3)
 
@@ -114,9 +115,9 @@ def cnn_train_augmented(epochs = 100, batch_size = 32, img_width = 150, img_heig
 
     print('\n\n\n\nAAAAAALLL DONE')
 
-def snn_train(epochs = 100, batch_size = 32, img_width = 150, img_height = 150, dataset='cedar', size=2000, type=None):
+def snn_train(epochs = 100, batch_size = 32, img_width = 150, img_height = 150, dataset='cedar', size=2000, type=None, gdps_size=None):
 
-    data_pairs, data_labels = loader.loader_for_snn(image_width=img_width, image_height=img_height, size=size)
+    data_pairs, data_labels = loader.loader_for_snn(image_width=img_width, image_height=img_height,dataset=dataset, size=size, gdps_size=gdps_size)
     if type is not None:
         feature = functions.add_features(data_pairs, type=type)
         if type == "wavelet":
@@ -126,20 +127,34 @@ def snn_train(epochs = 100, batch_size = 32, img_width = 150, img_height = 150, 
     else:
         SNNMODEL = model.snn_model(image_shape=(img_width, img_height, CHANNELS))
 
-
-    hist = SNNMODEL.fit(
-        x=([data_pairs[:, 0, :,:],feature[:, 0], data_pairs[:,1,:,:], feature[:,1]]),
-        y=data_labels,
-        #steps_per_epoch= int(len(train_pairs)/BATCH_SIZE),
-        batch_size=batch_size,
-        epochs=epochs,
-        shuffle=True,
-        validation_split=0.2,
-        callbacks=functions.callbacks_schelude_lr('SNN.csv')
-        #validation_data=([val_pairs[:,0,:,:], val_pairs[:,1,:,:]], val_labels),
-        #validation_steps=int(len(val_pairs)/BATCH_SIZE),
-        #callbacks=functions.callbacks()
-    )
+    if type is not None:
+        hist = SNNMODEL.fit(
+            x=([data_pairs[:, 0, :,:],feature[:, 0], data_pairs[:,1,:,:], feature[:,1]]),
+            y=data_labels,
+            #steps_per_epoch= int(len(train_pairs)/BATCH_SIZE),
+            batch_size=batch_size,
+            epochs=epochs,
+            shuffle=True,
+            validation_split=0.2,
+            callbacks=functions.callbacks_schelude_lr('SNN.csv')
+            #validation_data=([val_pairs[:,0,:,:], val_pairs[:,1,:,:]], val_labels),
+            #validation_steps=int(len(val_pairs)/BATCH_SIZE),
+            #callbacks=functions.callbacks()
+        )
+    else:
+        hist = SNNMODEL.fit(
+            x=([data_pairs[:, 0, :,:], data_pairs[:,1,:,:]]),
+            y=data_labels,
+            #steps_per_epoch= int(len(train_pairs)/BATCH_SIZE),
+            batch_size=batch_size,
+            epochs=epochs,
+            shuffle=True,
+            validation_split=0.2,
+            callbacks=functions.callbacks_schelude_lr('SNN.csv')
+            #validation_data=([val_pairs[:,0,:,:], val_pairs[:,1,:,:]], val_labels),
+            #validation_steps=int(len(val_pairs)/BATCH_SIZE),
+            #callbacks=functions.callbacks()
+        )
 
     # SNNMODEL.save(os.path.join('models', 'SnnSignatureVerificatorFinal.h5'))
     SNNMODEL.summary()
@@ -199,6 +214,7 @@ def main():
     batchsize = int(input("Batch size: "))
     width = int(input("Image width: "))
     height = int(input("Image height: "))
+
 
     ans = int(input('Do you wanna activate CNN(0) CNN AUGMENTEd(1) or SNN(2) continue training CNN(3) or SNN(4):  '))
     if ans == 0:cnn_train(epochs=epochsize, batch_size=batchsize, img_width=width, img_height=height)
