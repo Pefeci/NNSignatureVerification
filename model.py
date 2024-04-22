@@ -19,39 +19,6 @@ import functions
 from functions import euclidan_distance, euclidan_dist_output_shape
 from keras.optimizers import SGD, RMSprop, Adadelta
 
-# gradcam model:
-# def gradcam_heatmap(image, used_model, layer_name, positive_class=True, preprocess_input_function=None, normalize=True):
-#     # preprocess may be redundant /TODO check its all wrong?
-#     image = tf.convert_to_tensor(image)
-#     if preprocess_input_function is not None:
-#         image = preprocess_input_function(image)
-#
-#     with tf.GradientTape() as tape:
-#         tape.watch(image)
-#
-#         predictions = used_model(image, training=False)
-#         if(positive_class):
-#             target_class_output = predictions[:,1]
-#         else:
-#             target_class_output = predictions[:,0]
-#
-#     last_conv_layer_output = used_model.get_layer(layer_name).output
-#     gradients = tape.gradient(target_class_output,last_conv_layer_output)
-#
-#     pooled_gradient = tf.reduce_mean(gradients, axis=(0,1,2))
-#     heatmap = tf.reduce_sum(tf.multiply(pooled_gradient, last_conv_layer_output), axis=-1)
-#     heatmap = tf.nn.relu(heatmap)
-#
-#     if normalize:
-#         min_value = tf.reduce_min(heatmap)
-#         max_value = tf.reduce_max(heatmap)
-#         heatmap = (heatmap - min_value)/(max_value - min_value)
-#
-#     heatmap = heatmap.numpy()
-#     return heatmap
-
-
-
 def make_gradcam_heatmap(image, used_model, last_conv_name, pred_index):
 
     grad_model = models.Model(used_model.inputs, [used_model.get_layer(last_conv_name).output, used_model.output])
@@ -215,7 +182,7 @@ def snn_base_cnn_model(image_shape=(100 , 100, 1)):
 
 
 #Local X normal features
-def cnn_local_features(image_shape=(100,100,1)):
+def cnn_local_features(image_shape=(15,15,1)):
     num_conv_filters = 16  # pocet conv. filtru
     max_pool_size = (2, 2)  # velikost maxpool filtru
     conv_kernel_size = (3, 3)  # velikost conv. filtru
@@ -233,25 +200,35 @@ def cnn_local_features(image_shape=(100,100,1)):
     #Connected Layer
     model.add(Flatten())
     model.add(Dense(64, activation="relu"))
+    print(model.summary())
     return model
-
-
-
-# TODO delete cause REdundant
-# def cnn_procces_local(patch_size=10, image_shape=(100,100,1)):
-#     patch_inputs = [Input(shape=image_shape) for i in range(patch_size)]
-#     cnn_base_network = cnn_local_features(image_shape=image_shape)
-#     patch_outputs = [cnn_base_network(patch_input) for patch_input in patch_inputs]
-#     concat = Concatenate()(patch_outputs)
-#     dense = Dense(128, activation="relu")(concat)
-#     return Model(inputs=patch_inputs, outputs=dense)
-
-
 
 
 
 
 def snn_model(image_shape=(100, 100, 1), feature_shape=None, feature_type=None):
+
+    if feature_type == "local_solo":
+        feature1 = Input(shape=feature_shape, name=f'patch_input_image1_1')
+        feature2 = Input(shape=feature_shape, name=f'patch_input_image2_2')
+        cnn_base_local_network1 = cnn_local_features(image_shape=(feature_shape[1], feature_shape[2], feature_shape[3]))
+        cnn_base_local_network2 = cnn_local_features(image_shape=(feature_shape[1], feature_shape[2], feature_shape[3]))
+        local_patch_outputs_image1 = []
+        local_patch_outputs_image2 = []
+        for i in range(feature_shape[0]):
+            local_patch_outputs_image1.append(cnn_base_local_network1(feature1[:, i, :, :, :]))
+        for i in range(feature_shape[0]):
+            local_patch_outputs_image2.append(cnn_base_local_network2(feature2[:, i, :, :, :]))
+        concat_img1 = Concatenate(axis=1)(local_patch_outputs_image1)  # for patch 1
+        concat_img2 = Concatenate(axis=1)(local_patch_outputs_image2)  # for patch 2
+        concat = Concatenate()([concat_img1, concat_img2])
+        dense = Dense(128, activation="relu")(concat)
+        output = Dense(1, activation='sigmoid')(dense)
+        model = Model(inputs=[feature1, feature2], outputs=output)
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        model.summary()
+        return model
+
     base_network = snn_base_cnn_model(image_shape)
     image1 = Input(shape=(image_shape), name="image1")
     print(f'\nshape of im1 is {image1.shape}')
@@ -263,10 +240,6 @@ def snn_model(image_shape=(100, 100, 1), feature_shape=None, feature_type=None):
     print(preprocessed_image1.shape)
     preprocessed_image2 = base_network(image2)
     print(preprocessed_image2.shape)
-
-
-
-
 
     if feature_type is None:
         concat = Concatenate()([preprocessed_image1, preprocessed_image2])
@@ -283,7 +256,7 @@ def snn_model(image_shape=(100, 100, 1), feature_shape=None, feature_type=None):
     if feature_type == "strokes":
         feature1 = Input(shape=(1,), name='feature1')
         feature2 = Input(shape=(1,), name='feature2')
-        concat = Concatenate()([image_distance, feature1, feature2])
+        concat = Concatenate()([preprocessed_image1, preprocessed_image2, feature1, feature2])
 
     if feature_type == "wavelet":
         feature1 = Input(shape=(feature_shape,), name="feature1")
@@ -305,46 +278,29 @@ def snn_model(image_shape=(100, 100, 1), feature_shape=None, feature_type=None):
         concat = Concatenate()([image_distance, feature1, feature2])
 
     #Pro užití lokálních příznaků
-    #Define num_patches
-    # num_patches = 10
-    # patch_inputs_image1 = [Input(shape=image_shape, name=f'patch_input_image1_{i}') for i in range(num_patches)]
-    # patch_inputs_image2 = [Input(shape=image_shape, name=f'patch_input_image2_{i}') for i in range(num_patches)]
-    # cnn_base_local_network = cnn_local_features(image_shape=image_shape)
-    # local_patch_outputs_image1 = [cnn_base_local_network(patch_input) for patch_input in patch_inputs_image1]
-    # local_patch_outputs_image2 = [cnn_base_local_network(patch_input) for patch_input in patch_inputs_image2]
-    # concat_img1 = Concatenate()(local_patch_outputs_image1) #for patch 1
-    # concat_img2 = Concatenate()(local_patch_outputs_image2) #for patch 2
-    # concat_img1 = Concatenate()([preprocessed_image1, concat_img1])
-    # concat_img2 = Concatenate()([preprocessed_image2, concat_img2])
-    # concat = Concatenate()(concat_img1, concat_img2)
+    if feature_type == "local":
+        feature1 = Input(shape=feature_shape, name=f'patch_input_image1_1')
+        feature2 = Input(shape=feature_shape, name=f'patch_input_image2_2')
 
+        cnn_base_local_network1 = cnn_local_features(image_shape=(feature_shape[1], feature_shape[2], feature_shape[3]))
+        cnn_base_local_network2 = cnn_local_features(image_shape=(feature_shape[1], feature_shape[2], feature_shape[3]))
+        local_patch_outputs_image1 = []
+        local_patch_outputs_image2 = []
+        for i in range(feature_shape[0]):
+            local_patch_outputs_image1.append(cnn_base_local_network1(feature1[:, i, :, :, :]))
+        for i in range(feature_shape[0]):
+            local_patch_outputs_image2.append(cnn_base_local_network2(feature2[:, i, :, :, :]))
+        concat_img1 = Concatenate(axis=1)(local_patch_outputs_image1) #for patch 1
+        concat_img2 = Concatenate(axis=1)(local_patch_outputs_image2) #for patch 2
 
+        concat_img1 = Concatenate()([preprocessed_image1, concat_img1])
+        concat_img2 = Concatenate()([preprocessed_image2, concat_img2])
+        concat = Concatenate()([concat_img1, concat_img2])
 
-    # Určení vzdálenosti od dvou obrázků
-    #distance = Lambda(euclidan_distance, output_shape=euclidan_dist_output_shape)([preprocessed_image1, preprocessed_image2])
-    #model = Model(inputs=[image1, image2], outputs=distance)
-    #rms = RMSprop(learning_rate=1e-4, rho=0.9, epsilon=1e-08)
-
-    # TODO coment this back and forth for features
-    #concat = Concatenate()([preprocessed_image1, preprocessed_image2])
-    # dense = Dense(128, activation='relu')(concat)
     output = Dense(1, activation='sigmoid')(concat)
-    #TODO also theres need to change this
     model = Model(inputs=[image1, feature1, image2, feature2], outputs=output)
-    #model.compile(loss=functions.contrastive_loss, optimizer=rms, metrics=['accuracy'])
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
     model.summary()
 
     return model
-
-
-
-# def debug():
-#     Model = cnn_model()
-#     Model.build((None,200,200,1))
-#     Model.summary()
-
-
-def snn_model_with_strokes():
-    return

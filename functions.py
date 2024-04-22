@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import shap
-from PIL import Image
 from keras import backend as K
 import numpy as np
 import tensorflow as tf
@@ -100,14 +99,13 @@ def get_image_strokes(img):
 
 
 #Local features
-def image_for_local(image):
+def image_for_local(image, size=15):
     small_image_array = []
-    size = 10
-    for row in range(0, image.shape, size):
-        for col in range(0, image.shape, size):
+    for row in range(0, image.shape[0], size):
+        for col in range(0, image.shape[1], size):
             small_image = image[row:row+size, col:col+size]
             small_image_array.append(small_image)
-    small_image_array = np.array(small_image, dtype="float32")
+    small_image_array = np.array(small_image_array, dtype="float32")
     return small_image_array
 
 #Vlnková transformace
@@ -285,19 +283,20 @@ def save_and_display_gradcam(image, heatmap, cam_path="heatmap.jpg", alpha=0.4):
     superimposed_img.save(cam_path)
     show_single_image(superimposed_img)
 
-def visualize_with_shap(image, model):
+def visualize_with_shap(pair, model):
     shap.initjs()
-    masker = shap.maskers.Image("inapaint_telea", image.shape)
-    explainer = shap.Explainer(model, masker, [0,1]) #TODO add names accordingly to predictions
-    shap_values = explainer(image)
+    masker = shap.maskers.Image("inpaint_telea", pair[0,0].shape)
+    explainer = shap.Explainer(model, masker, output_names=["forgery","genuine"])
+    shap_values = explainer(pair[0,0], pair[0,1])
     shap.image_plot(shap_values)
 
 
 
-def add_features(data, isPair=True, type="strokes"):
+def add_features(data, isPair=True, feature_type="strokes"):
     feature = []
     i = 0 #DEBUG
-    if type == "strokes":
+
+    if feature_type == "strokes":
         if isPair:
             for pair in data:
                 stroke1 = get_image_strokes(pair[0])
@@ -305,13 +304,13 @@ def add_features(data, isPair=True, type="strokes"):
                 stroke2 = get_image_strokes(pair[1])
                 stroke2 /= 1000
                 feature.append([stroke1,stroke2])
-    elif type == "wavelet":
+    elif feature_type == "wavelet":
         if isPair:
             for pair in data:
                 wavelet1 = wavelet_transformation(pair[0])
                 wavelet2 = wavelet_transformation(pair[1])
                 feature.append([wavelet1, wavelet2])
-    elif type == "tri_shape":
+    elif feature_type == "tri_shape":
         if isPair:
             for pair in data:
                 mass1 = calculate_center_of_mass(pair[0])
@@ -324,14 +323,14 @@ def add_features(data, isPair=True, type="strokes"):
                 #print(f"mass2: {mass2}, norm1: {norm2}, aspect2: {aspect2} ")
                 feature.append([[mass1[0],mass1[1],mass1[2],mass1[3], norm1, aspect1],
                                 [mass2[0],mass2[1],mass2[2],mass2[3], norm2, aspect2]])
-    elif type == "tri_surface":
+    elif feature_type == "tri_surface":
         if isPair:
             for pair in data:
                 tri_surface1 = calculate_tri_surface_area(pair[0])
                 tri_surface2 = calculate_tri_surface_area(pair[1])
                 feature.append([[tri_surface1[0], tri_surface1[1], tri_surface1[2]],
                                 [tri_surface2[0], tri_surface2[1], tri_surface2[2]]])
-    elif type == "six_fold":
+    elif feature_type == "six_fold":
         if isPair:
             for pair in data:
                 print(i)
@@ -345,6 +344,12 @@ def add_features(data, isPair=True, type="strokes"):
                                             six_fold2[1][0], six_fold2[0][1], six_fold2[1][2],
                                             six_fold2[2][0], six_fold2[2][1], six_fold2[2][2]))
                 feature.append([six_fold1, six_fold2])
+    elif feature_type == "local" or feature_type == "local_solo":
+        if isPair:
+            for pair in data:
+                local1 = image_for_local(pair[0])
+                local2 = image_for_local(pair[1])
+                feature.append([local1, local2])
 
     feature = np.array(feature)
     print(f"feature shape: {feature.shape}")

@@ -23,15 +23,22 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 DATASET_NUM_CLASSES = {
-    "cedar": 55,
-    "hindi": 160,
-    "bengali": 100,
-    "test": 1,
-    "GDPS": 4000,
-    "dutch": 10,
-    "chinese": 10,
+    "cedar": 53,
+    "hindi": 156,
+    "bengali": 97,
+    "gdps": 3990,
+    "dutch": 60,
+    "chinese": 19,
     "all": 0,
     "czech": 0,
+    "cedar_test": 1,
+    "hindi_test": 4,
+    "bengali_test":3,
+    "gdps_test":10,
+    "dutch_test":4,
+    "chinese_test": 1,
+    "all_test": 0,
+    "czech_test": 0,
 }
 
 
@@ -42,8 +49,8 @@ DATASET_SIGNATURES_PER_PERSON = {
     "bengali_forg": 30,
     "hindi_org": 24,
     "hindi_forg": 30,
-    "GDPS_org": 24,
-    "GDPS_forg": 30,
+    "gdps_org": 24,
+    "gdps_forg": 30,
     "dutch_org": 24,
     "chinese_org": 24,
 }
@@ -91,25 +98,29 @@ def create_for_tr_ts_val_data(data_dir, dataset="cedar"):
 
 def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
     is_all = False
+    is_all_test = False
+    if dataset == "all_test":
+        is_all_test = True
     num_classes = DATASET_NUM_CLASSES[dataset]
     persons = []
     index = 0
-    if dataset == "all":
+    if dataset == "all" or dataset == "all_test":
         if gdps_size is None:
             gdps_size = 200
         is_all = True
-        dataset = "cedar"
+        if is_all_test:
+            dataset = "cedar_test"
+        else:
+            dataset = "cedar"
         num_classes = DATASET_NUM_CLASSES[dataset]
 
-    if dataset == "cedar":
+    if dataset == "cedar" or dataset == "cedar_test":
         if is_genuine:
             images = glob.glob(data_dir + '/cedar/genuine/*.png')
         else:
             images = glob.glob(data_dir + '/cedar/forgery/*.png')
         num_of_signatures = int(len(images) / num_classes)  # this only works with Cedar
         if num_of_signatures == 0: num_of_signatures = 1
-        #print(images)
-        # index = 0
         for person in range(num_classes):
             signatures = []
             for signature in range(num_of_signatures):
@@ -117,11 +128,14 @@ def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
                 index += 1
             persons.append(signatures)
         if is_all:
-            dataset = "bengali"
+            if is_all_test:
+                dataset = "bengali_test"
+            else:
+                dataset = "bengali"
             num_classes = DATASET_NUM_CLASSES[dataset]
             index = 0
 
-    if dataset == "bengali":
+    if dataset == "bengali" or dataset == "bengali_test":
         images = glob.glob(data_dir + '/bengali/*/*.tif')
         for person in range(num_classes):
             if is_genuine:
@@ -137,29 +151,32 @@ def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
                 index += 24
             persons.append(signatures)
         if is_all:
-            dataset = "dutch"
+            if is_all_test:
+                dataset = "dutch_test"
+            else:
+                dataset = "dutch"
             num_classes = DATASET_NUM_CLASSES[dataset]
             index = 0
 
-    if dataset == "dutch":
+    if dataset == "dutch" or dataset == "dutch_test":
         if is_genuine:
-            images = glob.glob(data_dir + '/dutch/genuine/*.PNG')
             for person in range(num_classes):
-                signatures = []
-                for signature in range(DATASET_SIGNATURES_PER_PERSON["dutch_org"]):
-                    signatures.append(images[index])
-                    index += 1
-                persons.append(signatures)
+                images = glob.glob(data_dir + "/dutch/genuine/" + str(person + 1) + "/*.PNG")
+                persons.append(images)
+
         else:
             for person in range(num_classes):
                 images = glob.glob(data_dir + "/dutch/forgery/" + str(person + 1) + "/*.PNG")
                 persons.append(images)
         if is_all:
-            dataset = "hindi"
+            if is_all_test:
+                dataset = "hindi_test"
+            else:
+                dataset = "hindi"
             num_classes = DATASET_NUM_CLASSES[dataset]
             index = 0
 
-    if dataset == "hindi":
+    if dataset == "hindi" or dataset == "hindi_test":
         images = glob.glob(data_dir + '/hindi/*/*.tif')
         for person in range(num_classes):
             if is_genuine:
@@ -175,29 +192,31 @@ def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
                 index += 24
             persons.append(signatures)
         if is_all:
-            dataset = "chinese"
+            if is_all_test:
+                dataset = "chinese_test"
+            else:
+                dataset = "chinese"
             num_classes = DATASET_NUM_CLASSES[dataset]
             index = 0
 
-    if dataset == "chinese":
+    if dataset == "chinese" or dataset == "chinese_test":
         if is_genuine:
-            images = glob.glob(data_dir + '/chinese/genuine/*.PNG')
             for person in range(num_classes):
-                signatures = []
-                for signature in range(DATASET_SIGNATURES_PER_PERSON["dutch_org"]):
-                    signatures.append(images[index])
-                    index += 1
-                persons.append(signatures)
+                images = glob.glob(data_dir + "/chinese/genuine/" + str(person + 1) + "/*.PNG")
+                persons.append(images)
         else:
             for person in range(num_classes):
                 images = glob.glob(data_dir + "/chinese/forgery/" + str(person + 1) + "/*.PNG")
                 persons.append(images)
         if is_all:
-            dataset = "GDPS"
+            if is_all_test:
+                dataset = "gdps_test"
+            else:
+                dataset = "gdps"
             num_classes = DATASET_NUM_CLASSES[dataset]
             index = 0
 
-    if dataset == "GDPS":
+    if dataset == "gdps" or dataset == "gdps_test":
         images = glob.glob(data_dir + '/GDPS/*/*.jpg')
         for person in range(num_classes):
             if is_genuine:
@@ -216,12 +235,15 @@ def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
                 if person == gdps_size - 1:
                     break
         if is_all:
-            dataset = "czech"
+            if is_all_test:
+                dataset = "czech_test"
+            else:
+                dataset = "czech"
             num_classes = DATASET_NUM_CLASSES[dataset]
             index = 0
 
-    if dataset == "czech":
-        pass
+    if dataset == "czech" or dataset == "czech_test":
+        print("HAHA")
     return persons
 
 
@@ -394,10 +416,8 @@ def combine_orig_forg(orig_data, forg_data, orig_labels, forg_labels, shuffle=Tr
 # CNN Loader
 def loader_for_cnn(data_dir="data", image_width=150, image_height=150, dataset='cedar', augmented=False, size=None):
 
-
     start_time = time.time()
 
-    # THIS IS CURRENT :]
     orig_data = create_data(data_dir, dataset=dataset, is_genuine=True)
     forg_data = create_data(data_dir, dataset=dataset, is_genuine=False)
     print(f'ORIG DATA: {len(orig_data)}')
@@ -516,11 +536,12 @@ def make_pairs(orig_data, forg_data):
     print(len(data_pairs))
     print(len(label_pairs))
     print('testing accuracy')
-    for i in range(5):
-        num = np.random.randint(0, len(data_pairs))
-        testing_pair = data_pairs[num]
-        print(len(testing_pair))
-        print(f'{testing_pair[0]} , {testing_pair[1]} = {label_pairs[num]}')
+    if len(data_pairs) > 5:
+        for i in range(5):
+            num = np.random.randint(0, len(data_pairs))
+            testing_pair = data_pairs[num]
+            print(len(testing_pair))
+            print(f'{testing_pair[0]} , {testing_pair[1]} = {label_pairs[num]}')
     return data_pairs, label_pairs
 
 
@@ -578,8 +599,8 @@ def visualize_snn_pair_sample(pair_array, label_array, title='Pair sample', nume
     #show_pair(pairs, label, title=title, columns=2, rows=numer_of_samples)
 
 
-def loader_for_snn(data_dir='data', train_size=6000, val_size=1500, test_size=500, image_width=200, image_height=200,
-                   dataset='cedar', size=4000, gdps_size=None):
+def loader_for_snn(data_dir='data', image_width=150, image_height=150,
+                   dataset='cedar', size=0, gdps_size=None): #size = 4000
 
 
     start_time = time.time()
