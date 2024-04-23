@@ -1,0 +1,13 @@
+opencv-python
+matplotlib
+numpy
+PyWavelets
+shap
+tensorflow
+keras
+Pillow
+scikit-learn
+scipy
+tensorflow_datasets
+shap
+ipython

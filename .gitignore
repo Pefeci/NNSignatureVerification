@@ -1,0 +1,14 @@
+__pycache__
+
+.idea/
+**/data
+**/figures
+**/fromServer
+**/logs
+**/models
+**/tester
+**/test
+
+*.csv
+
+.gitignore
