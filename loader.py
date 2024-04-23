@@ -373,7 +373,13 @@ def augment_image(img, rotate=True, shear=True, zoom=True, shift=True, gaussian_
 def convert_array_to_image_labels(image_path_array, image_width=150, image_height=150, augmented=False, genuine=False, size=None):
     labels = []
     image_array = []
+    index = 0
     for person in image_path_array:
+        if size:
+            if index > size:
+                break
+            else:
+                index += 1
         for img in person:
             img = convert_to_image(img)
             image_array.append(img)
@@ -391,7 +397,7 @@ def convert_array_to_image_labels(image_path_array, image_width=150, image_heigh
                     labels.extend([0 for i in range(len(augmented_images))])
     # image_array = np.array(image_array)
     # labels = np.array(labels, dtype=np.float32)
-    if size:
+    if size and size > len(image_path_array):
         image_sized_array = []
         label_sized_array = []
         rng = np.random.default_rng();

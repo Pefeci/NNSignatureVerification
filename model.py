@@ -43,7 +43,7 @@ def make_gradcam_heatmap(image, used_model, last_conv_name, pred_index):
 
 
 # solo models
-def cnn_model(image_shape=(150 , 150, 1)):
+def cnn_model(image_shape=(150 , 150, 1), is_feature=False):
     # konfigurace vrstev
     num_conv_filters = 32        # pocet conv. filtru
     max_pool_size = (2, 2)       # velikost maxpool filtru
@@ -51,33 +51,7 @@ def cnn_model(image_shape=(150 , 150, 1)):
     imag_shape = image_shape     # vlastnosti obrazku
     dropout_prob = 0.25          # pravdepodobnost odstraneni neuronu
 
-    # Predspracovani funkce
-    rescale = Sequential([
-        layers.Rescaling(1./255)
-    ])
-    threshold = Sequential([
-        layers.ThresholdedReLU(theta=0.6)
-    ])
-    rotate = Sequential([
-        layers.RandomRotation(factor=(-0.05, 0.05))
-    ])
-    translate = Sequential([
-        layers.RandomTranslation(height_factor=(-0.1, 0.1), width_factor=(-0.1,0.1))
-    ])
-    zoom = Sequential([
-        layers.RandomZoom(height_factor=(-0.1, 0.1), width_factor=(-0.1,0.1))
-    ])
-
-
     model = Sequential()  # Typ modelu
-
-    #Preprocessed Vrstva
-    #model.add(rescale)
-    #model.add(threshold)
-    #model.add(rotate)
-    #model.add(translate)
-    #model.add(zoom)
-
     # 1. vrstva
     model.add(Conv2D(filters=num_conv_filters, kernel_size=(conv_kernel_size), input_shape=imag_shape,
                      activation='relu', kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5)#1,data_format='channels_last'
@@ -105,14 +79,90 @@ def cnn_model(image_shape=(150 , 150, 1)):
     # Plne propojena vrstva
     model.add(Flatten())
     model.add(Dense(512, activation='relu'))
-
-    # odstraneni neuronu proti overfittingu
     model.add(Dropout(dropout_prob*2))
+    # model.add(Dense(128, activation="relu"))
+    # odstraneni neuronu proti overfittingu
+    if not is_feature:
+        model.add(Dense(1, activation='sigmoid'))
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.summary()
+    return model
 
-    # Vyhodnoceni
-    model.add(Dense(1, activation='sigmoid'))
+#Local X normal features
+def cnn_local_features(image_shape=(15,15,1)):
+    num_conv_filters = 16  # pocet conv. filtru
+    max_pool_size = (2, 2)  # velikost maxpool filtru
+    conv_kernel_size = (3, 3)  # velikost conv. filtru
+    imag_shape = image_shape  # vlastnosti obrazku
+    dropout_prob = 0.25  # pravdepodobnost odstraneni neuronu
+    model = Sequential()
+    #Layer 1
+    model.add(Conv2D(filters=num_conv_filters, kernel_size=conv_kernel_size, input_shape=imag_shape, activation="relu"))
+    model.add(MaxPool2D(max_pool_size))
+    model.add(Dropout(dropout_prob))
+    #Layer 2
+    model.add(Conv2D(filters=num_conv_filters, kernel_size=conv_kernel_size, activation="relu"))
+    model.add(MaxPool2D(max_pool_size))
+    model.add(Dropout(dropout_prob))
+    #Connected Layer
+    model.add(Flatten())
+    model.add(Dense(64, activation="relu"))
+    print(model.summary())
+    return model
 
+
+
+def cnn_feature_model(image_shape=(150,150,1), feature_shape=None, feature_type=None):
+    image = Input(shape=(image_shape), name="image")
+
+    if feature_type == "local_solo":
+        feature = Input(shape=feature_shape, name=f'patch_input_image')
+        cnn_base_local_network = cnn_local_features(image_shape=(feature_shape[1], feature_shape[2], feature_shape[3]))
+        local_patch_outputs_image = []
+        for i in range(feature_shape[0]):
+            local_patch_outputs_image.append(cnn_base_local_network(feature[:, i, :, :, :]))
+        concat_patch = Concatenate(axis=1)(local_patch_outputs_image)  # for patch
+        dense = Dense(128, activation="relu")(concat_patch)
+        output = Dense(1, activation='sigmoid')(dense)
+        model = Model(inputs=feature, outputs=output)
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        model.summary()
+        return model
+
+    cnn_base_network = cnn_model(image_shape, is_feature=True)
+    image_output = cnn_base_network(image)
+
+    if feature_type == "strokes":
+        feature = Input(shape=(1,), name="strokes")
+        concat = Concatenate()([image_output, feature])
+    if feature_type == "wavelet":
+        feature = Input(shape=feature_shape, name="wavelet")
+        dense_wavelet = Dense(128, activation="relu", name="dense_feat1")(feature)
+        concat = Concatenate()([image_output, dense_wavelet])
+    if feature_type == "tri_shape":
+        feature = Input(shape=(6,), name="tri_shape")
+        concat = Concatenate()([image_output, feature])
+    if feature_type == "tri_surface":
+        feature = Input(shape=(3,), name="tri_surface")
+        concat = Concatenate()([image_output, feature])
+    if feature_type == "six_fold":
+        feature = Input(shape=(18,), name="six_fold")
+        concat = Concatenate()([image_output, feature])
+    if feature_type == "local":
+        feature = Input(shape=feature_shape, name=f'patch_input_image')
+        cnn_base_local_network = cnn_local_features(image_shape=(feature_shape[1], feature_shape[2], feature_shape[3]))
+        local_patch_outputs_image = []
+        for i in range(feature_shape[0]):
+            local_patch_outputs_image.append(cnn_base_local_network(feature[:, i, :, :, :]))
+        concat_patch = Concatenate(axis=1)(local_patch_outputs_image)  # for patch
+        dense_patch = Dense(128, activation="relu")(concat_patch)
+        concat = Concatenate()([image_output, dense_patch])
+
+
+    output = Dense(1, activation='sigmoid', name="clasificator")(concat)
+    model = Model(inputs=[image, feature], outputs=output)
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.summary()
 
     return model
 
@@ -177,33 +227,8 @@ def snn_base_cnn_model(image_shape=(100 , 100, 1)):
     # model.add(Dropout(0.5))
     #
     # model.add(Dense(128, W_regularizer=L2(l2=0.0005), activation='relu'))
-    print(model.summary())
+    model.summary()
     return model
-
-
-#Local X normal features
-def cnn_local_features(image_shape=(15,15,1)):
-    num_conv_filters = 16  # pocet conv. filtru
-    max_pool_size = (2, 2)  # velikost maxpool filtru
-    conv_kernel_size = (3, 3)  # velikost conv. filtru
-    imag_shape = image_shape  # vlastnosti obrazku
-    dropout_prob = 0.25  # pravdepodobnost odstraneni neuronu
-    model = Sequential()
-    #Layer 1
-    model.add(Conv2D(filters=num_conv_filters, kernel_size=conv_kernel_size, input_shape=imag_shape, activation="relu"))
-    model.add(MaxPool2D(max_pool_size))
-    model.add(Dropout(dropout_prob))
-    #Layer 2
-    model.add(Conv2D(filters=num_conv_filters, kernel_size=conv_kernel_size, activation="relu"))
-    model.add(MaxPool2D(max_pool_size))
-    model.add(Dropout(dropout_prob))
-    #Connected Layer
-    model.add(Flatten())
-    model.add(Dense(64, activation="relu"))
-    print(model.summary())
-    return model
-
-
 
 
 def snn_model(image_shape=(100, 100, 1), feature_shape=None, feature_type=None):
@@ -258,29 +283,29 @@ def snn_model(image_shape=(100, 100, 1), feature_shape=None, feature_type=None):
         feature2 = Input(shape=(1,), name='feature2')
         concat = Concatenate()([preprocessed_image1, preprocessed_image2, feature1, feature2])
 
-    if feature_type == "wavelet":
+    elif feature_type == "wavelet":
         feature1 = Input(shape=(feature_shape,), name="feature1")
         feature2 = Input(shape=(feature_shape,), name="feature2")
         dense_wavelet1 = Dense(128, activation="relu", name="dense_feat1")(feature1)
         dense_wavelet2 = Dense(128, activation="relu", name="dense_feat2")(feature2)
         concat = Concatenate()([image_distance, dense_wavelet1, dense_wavelet2])
-    if feature_type == "tri_shape":
+    elif feature_type == "tri_shape":
         feature1 = Input(shape=(6,), name="feature1")
         feature2 = Input(shape=(6,), name="feature2")
         concat = Concatenate()([image_distance, feature1, feature2])
-    if feature_type == "tri_surface":
+    elif feature_type == "tri_surface":
         feature1 = Input(shape=(3,), name="feature1")
         feature2 = Input(shape=(3,), name="feature2")
         concat = Concatenate()([image_distance, feature1, feature2])
-    if feature_type == "six_fold":
+    elif feature_type == "six_fold":
         feature1 = Input(shape=(18), name="feature1")
         feature2 = Input(shape=(18), name="feature2")
         concat = Concatenate()([image_distance, feature1, feature2])
 
     #Pro užití lokálních příznaků
-    if feature_type == "local":
-        feature1 = Input(shape=feature_shape, name=f'patch_input_image1_1')
-        feature2 = Input(shape=feature_shape, name=f'patch_input_image2_2')
+    elif feature_type == "local":
+        feature1 = Input(shape=feature_shape, name=f'patch_input_image1')
+        feature2 = Input(shape=feature_shape, name=f'patch_input_image2')
 
         cnn_base_local_network1 = cnn_local_features(image_shape=(feature_shape[1], feature_shape[2], feature_shape[3]))
         cnn_base_local_network2 = cnn_local_features(image_shape=(feature_shape[1], feature_shape[2], feature_shape[3]))

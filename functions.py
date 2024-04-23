@@ -292,26 +292,33 @@ def visualize_with_shap(pair, model):
 
 
 
-def add_features(data, isPair=True, feature_type="strokes"):
+def add_features(data, is_pair=True, feature_type="strokes"):
     feature = []
-    i = 0 #DEBUG
-
     if feature_type == "strokes":
-        if isPair:
+        if is_pair:
             for pair in data:
                 stroke1 = get_image_strokes(pair[0])
                 stroke1 /= 1000
                 stroke2 = get_image_strokes(pair[1])
                 stroke2 /= 1000
                 feature.append([stroke1,stroke2])
+        else:
+            for img in data:
+                stroke1 = get_image_strokes(img)
+                stroke1 /= 1000
+                feature.append(stroke1)
     elif feature_type == "wavelet":
-        if isPair:
+        if is_pair:
             for pair in data:
                 wavelet1 = wavelet_transformation(pair[0])
                 wavelet2 = wavelet_transformation(pair[1])
                 feature.append([wavelet1, wavelet2])
+        else:
+            for img in data:
+                wavelet = wavelet_transformation(img)
+                feature.append(wavelet)
     elif feature_type == "tri_shape":
-        if isPair:
+        if is_pair:
             for pair in data:
                 mass1 = calculate_center_of_mass(pair[0])
                 mass2 = calculate_center_of_mass(pair[1])
@@ -323,18 +330,26 @@ def add_features(data, isPair=True, feature_type="strokes"):
                 #print(f"mass2: {mass2}, norm1: {norm2}, aspect2: {aspect2} ")
                 feature.append([[mass1[0],mass1[1],mass1[2],mass1[3], norm1, aspect1],
                                 [mass2[0],mass2[1],mass2[2],mass2[3], norm2, aspect2]])
+        else:
+            for img in data:
+                mass = calculate_center_of_mass(img)
+                norm = calculate_normalized_shape(img)
+                aspect = calculate_aspect_ratio(img)
+                feature.append([mass[0],mass[1],mass[2],mass[3], norm, aspect])
     elif feature_type == "tri_surface":
-        if isPair:
+        if is_pair:
             for pair in data:
                 tri_surface1 = calculate_tri_surface_area(pair[0])
                 tri_surface2 = calculate_tri_surface_area(pair[1])
                 feature.append([[tri_surface1[0], tri_surface1[1], tri_surface1[2]],
                                 [tri_surface2[0], tri_surface2[1], tri_surface2[2]]])
+        else:
+            for img in data:
+                tri_surface = calculate_tri_surface_area(img)
+                feature.append([tri_surface[0], tri_surface[1], tri_surface[2]])
     elif feature_type == "six_fold":
-        if isPair:
+        if is_pair:
             for pair in data:
-                print(i)
-                i += 1
                 six_fold1 = six_fold_surface(pair[0])
                 six_fold2 = six_fold_surface(pair[1])
                 six_fold1 = np.concatenate((six_fold1[0][0], six_fold1[0][1], six_fold1[0][2],
@@ -344,12 +359,23 @@ def add_features(data, isPair=True, feature_type="strokes"):
                                             six_fold2[1][0], six_fold2[0][1], six_fold2[1][2],
                                             six_fold2[2][0], six_fold2[2][1], six_fold2[2][2]))
                 feature.append([six_fold1, six_fold2])
+        else:
+            for img in data:
+                six_fold = six_fold_surface(img)
+                six_fold = np.concatenate((six_fold[0][0], six_fold[0][1], six_fold[0][2],
+                                            six_fold[1][0], six_fold[1][1], six_fold[1][2],
+                                            six_fold[2][0], six_fold[2][1], six_fold[2][2]))
+                feature.append(six_fold)
     elif feature_type == "local" or feature_type == "local_solo":
-        if isPair:
+        if is_pair:
             for pair in data:
                 local1 = image_for_local(pair[0])
                 local2 = image_for_local(pair[1])
                 feature.append([local1, local2])
+        else:
+            for img in data:
+                local = image_for_local(img)
+                feature.append(local)
 
     feature = np.array(feature)
     print(f"feature shape: {feature.shape}")
