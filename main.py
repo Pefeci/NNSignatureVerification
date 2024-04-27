@@ -201,28 +201,6 @@ def continue_on_snn(model, epochs = 100, batch_size = 32, img_width = 150, img_h
 
 
 def main():
-    file_path = '/content/models/research/object_detection/model_main_tf2.py'
-
-    # Read the content of the file
-    with open(file_path, 'r') as file:
-        content = file.readlines()
-
-    # Find the index of the import tensorflow line
-    import_line_index = next(i for i, line in enumerate(content) if 'import tensorflow' in line)
-
-    # Define the fix command to insert
-    fix_command = "tf.config.optimizer.set_experimental_options({'layout_optimizer': False})\n"
-
-    # Insert the fix command after the TensorFlow import
-    content.insert(import_line_index + 1, fix_command)
-
-    # Write the modified content back to the file
-    with open(file_path, 'w') as file:
-        file.writelines(content)
-
-
-
-
     epochsize = int(input("Number of epochs: "))
     batchsize = int(input("Batch size: "))
     width = 150
