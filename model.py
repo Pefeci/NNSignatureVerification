@@ -1,23 +1,18 @@
 """
 @author: Petr Čírtek
 """
-# Not used imports
-import keras
-import PIL
-from keras import backend
-from keras import layers, models
+
+from keras import models
 import tensorflow as tf
-from keras.backend import relu, sigmoid
-# True imports
+tf.config.optimizer.set_experimental_options({'layout_optimizer': False})
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPool2D, MaxPooling2D, \
-    BatchNormalization, ZeroPadding2D, Input, Concatenate, Reshape
+    BatchNormalization, Input, Concatenate
 from keras.layers import Lambda
 from tensorflow.keras.regularizers import L1L2, L1, L2
 
 import functions
-from functions import euclidan_distance, euclidan_dist_output_shape
-from keras.optimizers import SGD, RMSprop, Adadelta
+
 
 def make_gradcam_heatmap(image, used_model, last_conv_name, pred_index):
 
@@ -110,8 +105,6 @@ def cnn_local_features(image_shape=(15,15,1)):
     print(model.summary())
     return model
 
-
-
 def cnn_feature_model(image_shape=(150,150,1), feature_shape=None, feature_type=None):
     image = Input(shape=(image_shape), name="image")
 
@@ -134,6 +127,9 @@ def cnn_feature_model(image_shape=(150,150,1), feature_shape=None, feature_type=
 
     if feature_type == "strokes":
         feature = Input(shape=(1,), name="strokes")
+        concat = Concatenate()([image_output, feature])
+    if feature_type == "histogram":
+        feature = Input(shape=feature_shape, name="histogram")
         concat = Concatenate()([image_output, feature])
     if feature_type == "wavelet":
         feature = Input(shape=feature_shape, name="wavelet")
@@ -165,6 +161,8 @@ def cnn_feature_model(image_shape=(150,150,1), feature_shape=None, feature_type=
     model.summary()
 
     return model
+
+
 
 def snn_base_cnn_model(image_shape=(100 , 100, 1)):
     num_conv_filters = 32  # pocet conv. filtru
@@ -230,7 +228,6 @@ def snn_base_cnn_model(image_shape=(100 , 100, 1)):
     model.summary()
     return model
 
-
 def snn_model(image_shape=(100, 100, 1), feature_shape=None, feature_type=None):
 
     if feature_type == "local_solo":
@@ -282,22 +279,25 @@ def snn_model(image_shape=(100, 100, 1), feature_shape=None, feature_type=None):
         feature1 = Input(shape=(1,), name='feature1')
         feature2 = Input(shape=(1,), name='feature2')
         concat = Concatenate()([preprocessed_image1, preprocessed_image2, feature1, feature2])
-
-    elif feature_type == "wavelet":
+    if feature_type == "histogram":
+        feature1 = Input(shape=(feature_shape,), name="feature1")
+        feature2 = Input(shape=(feature_shape,), name="feature2")
+        concat = Concatenate()([preprocessed_image1, preprocessed_image2, feature1, feature2])
+    if feature_type == "wavelet":
         feature1 = Input(shape=(feature_shape,), name="feature1")
         feature2 = Input(shape=(feature_shape,), name="feature2")
         dense_wavelet1 = Dense(128, activation="relu", name="dense_feat1")(feature1)
         dense_wavelet2 = Dense(128, activation="relu", name="dense_feat2")(feature2)
         concat = Concatenate()([image_distance, dense_wavelet1, dense_wavelet2])
-    elif feature_type == "tri_shape":
+    if feature_type == "tri_shape":
         feature1 = Input(shape=(6,), name="feature1")
         feature2 = Input(shape=(6,), name="feature2")
-        concat = Concatenate()([image_distance, feature1, feature2])
-    elif feature_type == "tri_surface":
+        concat = Concatenate()([preprocessed_image1, preprocessed_image2, feature1, feature2])
+    if feature_type == "tri_surface":
         feature1 = Input(shape=(3,), name="feature1")
         feature2 = Input(shape=(3,), name="feature2")
-        concat = Concatenate()([image_distance, feature1, feature2])
-    elif feature_type == "six_fold":
+        concat = Concatenate()([preprocessed_image1, preprocessed_image2, feature1, feature2]) #TODO OTESTOVAT A ZMENIT
+    if feature_type == "six_fold":
         feature1 = Input(shape=(18), name="feature1")
         feature2 = Input(shape=(18), name="feature2")
         concat = Concatenate()([image_distance, feature1, feature2])

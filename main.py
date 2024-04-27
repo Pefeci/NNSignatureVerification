@@ -1,34 +1,15 @@
 from __future__ import  absolute_import, division, print_function, unicode_literals
-# IMPORTING ALLES :))
-import datetime
-import sys
-import numpy as np
-import pickle
 import os
 import matplotlib
 
 import functions
 
-matplotlib.use('TkAgg')
-from matplotlib import pyplot as plt
-import tensorflow as tf
-
-
-import cv2
-import time
-import itertools
-import random
-
-from sklearn.utils import shuffle
+matplotlib.use('Agg')
 
 
 import tensorflow as tf
-from tensorflow.keras.metrics import Precision, Recall, BinaryAccuracy
-from keras.models import Sequential
-from keras.optimizers import Adam
+tf.config.optimizer.set_experimental_options({'layout_optimizer': False})
 from tensorflow.keras.models import load_model
-import glob
-import logging
 
 
 import loader
@@ -40,8 +21,8 @@ CHANNELS = 1
 #LABELS = np.array(["Forged", "Genuine"])
 #BATCH_SIZE = 32
 #EPOCH_SIZE = 10
-DATASETS = ["cedar", "chinese", "dutch", "hindi", "bengali", "GDPS", "all"]
-FEATURES = ["None", "strokes", "local", "local_solo", "wavelet", "tri_shape", "tri_surface", "sixfold"]
+DATASETS = ["cedar", "chinese", "dutch", "hindi", "bengali", "gdps", "all"]
+FEATURES = ["None", "strokes", "histogram" "local", "local_solo", "wavelet", "tri_shape", "tri_surface", "six_fold"]
                       
 image_shape = (None, 100, 100, 3)
 
@@ -55,7 +36,7 @@ def cnn_train(epochs = 100, batch_size = 32, img_width = 150, img_height = 150, 
                                          augmented=augmented, size=size)
     if feature_type is not None:
         feature = functions.add_features(data, is_pair=False, feature_type=feature_type)
-        if feature_type == "wavelet":
+        if feature_type == "wavelet" or feature_type == "histogram":
             CNNMODEL = model.cnn_feature_model(image_shape=(img_width,img_height, CHANNELS), feature_type=feature_type, feature_shape=feature.shape[1])
         elif feature_type == "local" or feature_type == "local_solo":
             CNNMODEL = model.cnn_feature_model(image_shape=(img_width,img_height, CHANNELS),feature_type=feature_type,
@@ -94,21 +75,22 @@ def cnn_train(epochs = 100, batch_size = 32, img_width = 150, img_height = 150, 
                             callbacks=functions.callbacks_schelude_lr((csv_name + ".csv"))
                             )
     # MODEL.build(image_shape)
-    CNNMODEL.summary()
+    #CNNMODEL.summary()
     #
     # fig = plt.figure(figsize=(7, 7))
     # plt.plot(hist.history['loss'], color='teal', label='loss')
     # plt.plot(hist.history['val_loss'], color='orange', label='val_loss')
     # fig.suptitle('Loss', fontsize=20)
     # plt.legend(loc="upper left")
-    # plt.show()
+    # plt.show(block=True)
     #
     # fig = plt.figure(figsize=(7, 7))
     # plt.plot(hist.history['accuracy'], color='teal', label='accuracy')
     # plt.plot(hist.history['val_accuracy'], color='orange', label='val_accuracy')
     # fig.suptitle('Accuracy', fontsize=20)
     # plt.legend(loc="upper left")
-    # plt.show()
+    # plt.show(block=True)
+
     if save_name is not None:
         print("Model saved")
         CNNMODEL.save(os.path.join('models', (save_name+'.h5')))
@@ -123,7 +105,7 @@ def snn_train(epochs = 100, batch_size = 32, img_width = 150, img_height = 150, 
     data_pairs, data_labels = loader.loader_for_snn(image_width=img_width, image_height=img_height,dataset=dataset, size=size, gdps_size=gdps_size)
     if feature_type is not None:
         feature = functions.add_features(data_pairs, feature_type=feature_type)
-        if feature_type == "wavelet":
+        if feature_type == "wavelet" or feature_type == "histogram":
             SNNMODEL = model.snn_model(image_shape=(img_width, img_height, CHANNELS), feature_shape=feature.shape[2], feature_type=feature_type)
         elif feature_type == "local" or feature_type == "local_solo":
             SNNMODEL = model.snn_model(image_shape=(img_width, img_height, CHANNELS), feature_type=feature_type,
@@ -174,7 +156,7 @@ def snn_train(epochs = 100, batch_size = 32, img_width = 150, img_height = 150, 
     # plt.plot(hist.history['val_loss'], color='orange', label='val_loss')
     # fig.suptitle('Loss', fontsize=20)
     # plt.legend(loc="upper left")
-    # plt.show()
+    # plt.show(block=True)
     #
     # fig = plt.figure(figsize=(7, 7))
     # plt.plot(hist.history['accuracy'], color='teal', label='accuracy')
@@ -199,7 +181,7 @@ def continue_on_snn(model, epochs = 100, batch_size = 32, img_width = 150, img_h
 
     loaded_model.save(os.path.join('models', 'SnnSignatureVerificatorLoaded.h5'))
 
-    loaded_model.summary()
+    # loaded_model.summary()
 
     # fig = plt.figure(figsize=(7, 7))
     # plt.plot(hist.history['loss'], color='teal', label='loss')
@@ -219,34 +201,81 @@ def continue_on_snn(model, epochs = 100, batch_size = 32, img_width = 150, img_h
 
 
 def main():
+    file_path = '/content/models/research/object_detection/model_main_tf2.py'
+
+    # Read the content of the file
+    with open(file_path, 'r') as file:
+        content = file.readlines()
+
+    # Find the index of the import tensorflow line
+    import_line_index = next(i for i, line in enumerate(content) if 'import tensorflow' in line)
+
+    # Define the fix command to insert
+    fix_command = "tf.config.optimizer.set_experimental_options({'layout_optimizer': False})\n"
+
+    # Insert the fix command after the TensorFlow import
+    content.insert(import_line_index + 1, fix_command)
+
+    # Write the modified content back to the file
+    with open(file_path, 'w') as file:
+        file.writelines(content)
+
+
+
+
     epochsize = int(input("Number of epochs: "))
     batchsize = int(input("Batch size: "))
     width = 150
     height = 150
-    save = input("Name of model to save: ")
-    if save == "":
-        save = None
-    for i in range(len(DATASETS)):
-        print(f"{i}: {DATASETS[i]}")
-    dataset = int(input("Chose dataset: "))
-    dataset = DATASETS[dataset]
-    for i in range(len(FEATURES)):
-        print(f"{i}: {FEATURES[i]}")
-    feature = int(input("Chose feature: "))
-    if feature == 0:
-        feature_type = None
-    else:
-        feature_type = FEATURES[feature]
+    augmented = False
 
-    ans = int(input('Do you wanna activate CNN(0) or SNN(1):  '))
+
+    ans = int(input('Do you wanna activate CNN(0) or SNN(1) or Package CNN(2) or  Package SNN(3):  '))
+    if ans == 0 or ans == 1:
+        save = input("Name of model to save: ")
+        if save == "":
+            save = None
+        for i in range(len(DATASETS)):
+            print(f"{i}: {DATASETS[i]}")
+        dataset = int(input("Chose dataset: "))
+        dataset = DATASETS[dataset]
+        for i in range(len(FEATURES)):
+            print(f"{i}: {FEATURES[i]}")
+        feature = int(input("Chose feature: "))
+        if feature == 0:
+            feature_type = None
+        else:
+            feature_type = FEATURES[feature]
+
+
     if ans == 0:
         augmented = bool(input("Augmented data (True, ENTER): "))
         size = int(input("Size of data: "))
-        cnn_train(epochs=epochsize, batch_size=batchsize, img_width=width, img_height=height, augmented=augmented, dataset=dataset, size=size, save_name=save)
+        cnn_train(epochs=epochsize, batch_size=batchsize, img_width=width, img_height=height, augmented=augmented, dataset=dataset, size=size, save_name=save, feature_type=feature_type)
     elif ans == 1:
         size = int(input("Size of pairs: "))
 
         snn_train(epochs=epochsize, batch_size=batchsize, img_width=width, img_height=height, size=size, dataset=dataset, save_name=save, feature_type=feature_type)
+
+    elif ans == 2 or ans == 3 :
+        model_dir = input("Enter output dir: ")
+        if ans == 2:
+            size = int(input("Size of data: "))
+            augmented = bool(input("Augmented data (True, ENTER): "))
+        else:
+            size = int(input("Size of pairs: "))
+        for dataset in DATASETS:
+            for feature in FEATURES:
+                if feature == "None":
+                    feature = None
+                if ans == 2:
+                    save = model_dir + "/" + "CNN_" + dataset + "_" + str(feature)
+                    print(f"Training for CNN with {dataset} and {feature}")
+                    cnn_train(epochs=epochsize, batch_size=batchsize, img_width=width, img_height=height, augmented=augmented, dataset=dataset, size=size, save_name=save, feature_type=feature)
+                else:
+                    save = model_dir + "/" + "SNN_" + dataset + "_" + str(feature)
+                    print(f"Training for SNN with {dataset} and {feature}")
+                    snn_train(epochs=epochsize, batch_size=batchsize, img_width=width, img_height=height, size=size, dataset=dataset, save_name=save, feature_type=feature)
     else:
         print("nothings gonna happen :)")
         return

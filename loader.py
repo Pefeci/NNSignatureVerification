@@ -4,23 +4,20 @@
 import glob
 import itertools
 import os
-import imghdr
+
 import time
 import random
 import matplotlib
 import sklearn.utils
 from scipy import ndimage
 
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
-from sklearn.utils import shuffle
-
-import PIL
 from PIL import Image
 import tensorflow as tf
-import tensorflow_datasets as tfds
+tf.config.optimizer.set_experimental_options({'layout_optimizer': False})
 
 DATASET_NUM_CLASSES = {
     "cedar": 53,
@@ -397,7 +394,7 @@ def convert_array_to_image_labels(image_path_array, image_width=150, image_heigh
                     labels.extend([0 for i in range(len(augmented_images))])
     # image_array = np.array(image_array)
     # labels = np.array(labels, dtype=np.float32)
-    if size and size > len(image_path_array):
+    if size and size < len(labels):
         image_sized_array = []
         label_sized_array = []
         rng = np.random.default_rng();
@@ -429,7 +426,7 @@ def loader_for_cnn(data_dir="data", image_width=150, image_height=150, dataset='
     print(f'ORIG DATA: {len(orig_data)}')
     print(f'FORG DATA: {len(forg_data)}')
     orig_data, orig_labels = convert_array_to_image_labels(orig_data, genuine=True, augmented=augmented, size=size)
-    forg_data, forg_labels = convert_array_to_image_labels(forg_data, genuine=False, augmented=augmented, size=size)  # Moznost augmentace
+    forg_data, forg_labels = convert_array_to_image_labels(forg_data, genuine=False, augmented=augmented, size=size)
     print(f'ORIG DATA: {len(orig_data)}')
     print(f'FORG DATA: {len(forg_data)}')
     data, labels = combine_orig_forg(orig_data, forg_data, orig_labels, forg_labels)
@@ -497,7 +494,7 @@ def convert_pairs_to_image_pairs(pair_array, labels, img_w=150, img_h=150, outpu
     new_labels = []
     index = 0
 
-    if output_size == 0:
+    if output_size == 0 or output_size > len(pair_array):
         output_size = len(pair_array)
         for pair in pair_array:
             if (index == output_size):

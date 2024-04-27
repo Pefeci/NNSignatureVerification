@@ -1,9 +1,11 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+mpl.use('Agg')
 import shap
 from keras import backend as K
 import numpy as np
 import tensorflow as tf
+tf.config.optimizer.set_experimental_options({'layout_optimizer': False})
 import pywt
 import cv2
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, LearningRateScheduler
@@ -152,13 +154,13 @@ def plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns):
 
 
 
-
+#Histogram
 def count_none_white_pixels(image, count_axis=False):
     pixel_count = np.sum(image == 0)
     if count_axis:
         non_white_pixels_rows = np.sum(image == 0, axis=1)
         non_white_pixels_columns = np.sum(image == 0, axis=0)
-        plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns)
+        # plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns)
         return pixel_count, non_white_pixels_rows, non_white_pixels_columns
     return pixel_count
 
@@ -205,6 +207,8 @@ def calculate_aspect_ratio(image):
     image = image[:, :, 0]
     pixel_indieces = np.where(image == 0)
     rows, cols = pixel_indieces
+    if (len(rows) == 0 or len(cols) == 0):
+        return 0
     height = max(rows) - min(rows) + 1
     width = max(cols) - min(cols) + 1
     aspect_ratio = width / height
@@ -307,6 +311,29 @@ def add_features(data, is_pair=True, feature_type="strokes"):
                 stroke1 = get_image_strokes(img)
                 stroke1 /= 1000
                 feature.append(stroke1)
+    elif feature_type == "histogram":
+        if is_pair:
+            for pair in data:
+                pixel1, horizontal1, vertical1 = count_none_white_pixels(pair[0], count_axis=True)
+                horizontal1 = horizontal1.flatten()
+                vertical1 = vertical1.flatten()
+                histogram1 = np.concatenate([horizontal1, vertical1])
+                histogram1 = np.concatenate([[pixel1], histogram1])
+                pixel2, horizontal2, vertical2 = count_none_white_pixels(pair[1], count_axis=True)
+                horizontal2 = horizontal2.flatten()
+                vertical2 = vertical2.flatten()
+                histogram2 = np.concatenate([horizontal2, vertical2])
+                histogram2 = np.concatenate([[pixel2], histogram2])
+                feature.append([histogram1, histogram2])
+        else:
+            for img in data:
+                pixel, horizontal, vertical = count_none_white_pixels(img, count_axis=True)
+                horizontal = horizontal.flatten()
+                vertical = vertical.flatten()
+                histogram = np.concatenate([horizontal, vertical])
+                histogram = np.concatenate([[pixel], histogram])
+                feature.append(histogram)
+
     elif feature_type == "wavelet":
         if is_pair:
             for pair in data:
