@@ -9,5 +9,4 @@ Pillow
 scikit-learn
 scipy
 tensorflow_datasets
-shap
 ipython
