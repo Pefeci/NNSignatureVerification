@@ -1,5 +1,5 @@
 import matplotlib as mpl
-mpl.use("Agg")
+mpl.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
 import shap
@@ -18,8 +18,6 @@ from keras.callbacks import (
 
 # TODO TODO TODO Natrenovat pro kazdou mnozinu, a udelat experimenty, spojit mnoziny a natrenovat na te vizulizovat pri predikci
 # TODO TODO Predelat main aby to davalo vetsi smysl, pridat installation do README a requirements a dopsat to konecne kurva
-# TODO pokud bude cas vytvorit jeste jeden model ktery bude pracovat jen s priznaky ^^
-
 
 def show_single_image(img):
     plt.imshow(img, cmap="gray")
@@ -321,12 +319,57 @@ def save_and_display_gradcam(image, heatmap, cam_path="heatmap.jpg", alpha=0.4):
     show_single_image(superimposed_img)
 
 
-def visualize_with_shap(pair, model):
+def visualize_with_shap(data, model, pred):
     shap.initjs()
-    masker = shap.maskers.Image("inpaint_telea", pair[0, 0].shape)
-    explainer = shap.Explainer(model, masker, output_names=["forgery", "genuine"])
-    shap_values = explainer(pair[0, 0], pair[0, 1])
-    shap.image_plot(shap_values)
+    masker = shap.maskers.Image("inpaint_telea", data[0].shape)
+    explainer = shap.Explainer(model, masker)
+    shap_values = explainer(data, outputs=shap.Explanation.argsort.flip[:1])
+    labels = pred
+    labels = np.array(labels)
+    print(labels)
+    shap.image_plot(shap_values, labels=labels, show=False)
+
+def shuffle_data(data, labels):
+    data_shuffled_array = []
+    label_shuffled_array = []
+    rng = np.random.default_rng()
+    indices = rng.choice(len(data),size=len(data), replace=False, shuffle=True)
+    for i in indices:
+        image = data[i]
+        data_shuffled_array.append(image)
+        label_shuffled_array.append(labels[i])
+    data_shuffled_array = np.array(data_shuffled_array, dtype=np.float32)
+    label_shuffled_array = np.array(label_shuffled_array, dtype=np.float32)
+    return data_shuffled_array, label_shuffled_array
+
+def prediction_to_label(predictions):
+    labels = []
+    for prediction in predictions:
+        if prediction > 0.5:
+            labels.append(["genuine"])
+        else:
+            labels.append(["forgery"])
+    return np.array(labels)
+
+
+def overlay_heatmap(image, heatmap, alpha=0.6, colormap=cv2.COLORMAP_JET):
+    # Resize the heatmap to match the size of the input image
+    heatmap_resized = cv2.resize(heatmap, (image.shape[1], image.shape[0]))
+    # Handle NaN
+    heatmap_resized = np.nan_to_num(heatmap_resized)
+    # Scale the heatmap to the range of 0 to 255
+    heatmap_rescaled = (heatmap_resized * 255).astype(np.uint8)
+
+    # Apply colormap to the heatmap
+    heatmap_colored = cv2.applyColorMap(heatmap_rescaled, colormap)
+
+    # Convert the original image to the range of 0 to 255
+    image_uint8 = (image * 255).astype(np.uint8)
+
+    # Overlay the heatmap onto the original image
+    overlaid_image = cv2.addWeighted(cv2.cvtColor(image_uint8, cv2.COLOR_GRAY2BGR), alpha, heatmap_colored, 1 - alpha, 0)
+
+    return overlaid_image
 
 
 def add_features(data, is_pair=True, feature_type="strokes"):

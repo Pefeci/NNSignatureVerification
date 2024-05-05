@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use("TkAgg")
 import functions
 import tensorflow as tf
 tf.config.optimizer.set_experimental_options({"layout_optimizer": False})
