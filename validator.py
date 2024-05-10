@@ -7,7 +7,7 @@ from tensorflow.keras.models import load_model
 import functions
 import loader
 from functions import visualize_with_shap, prediction_to_label, overlay_heatmap
-from model import make_gradcam_heatmap, make_gradcam_heatmap_siamese
+from model import make_gradcam_heatmap
 from matplotlib import pyplot as plt
 
 def test_model(datadir="fromServer"):

@@ -219,7 +219,7 @@ def cnn_feature_model(image_shape=(150, 150, 1), feature_shape=None, feature_typ
     return model
 
 
-def snn_base_cnn_model(image_shape=(100, 100, 1)):
+def snn_base_cnn_model(image_shape=(150, 150, 1)):
     num_conv_filters = 32  # pocet conv. filtru
     max_pool_size = (2, 2)  # velikost maxpool filtru
     conv_kernel_size = (3, 3)  # velikost conv. filtru
@@ -234,33 +234,35 @@ def snn_base_cnn_model(image_shape=(100, 100, 1)):
             input_shape=imag_shape,
             activation="relu",
             data_format="channels_last",
-            # kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5)
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),
         )
     )
-    model.add(BatchNormalization(epsilon=1e-06, axis=-1, momentum=0.9))
+    #model.add(BatchNormalization(epsilon=1e-05, axis=-1, momentum=0.9))
     model.add(MaxPool2D(pool_size=max_pool_size))
     model.add(Dropout(dropout_prob))
 
     model.add(
         Conv2D(
             filters=num_conv_filters * 2,
-            kernel_size=(conv_kernel_size),
+            kernel_size=conv_kernel_size,
             input_shape=imag_shape,
             activation="relu",
-            data_format="channels_last",  # , kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5)
+            data_format="channels_last",
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),
         )
     )
-    model.add(BatchNormalization(epsilon=1e-06, axis=-1, momentum=0.9))
+    #model.add(BatchNormalization(epsilon=1e-06, axis=-1, momentum=0.9))
     model.add(MaxPool2D(pool_size=max_pool_size))
     model.add(Dropout(dropout_prob))
 
     model.add(
         Conv2D(
             filters=num_conv_filters * 3,
-            kernel_size=(conv_kernel_size),
+            kernel_size=conv_kernel_size,
             input_shape=imag_shape,
             activation="relu",
-            data_format="channels_last",  # , kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5)
+            data_format="channels_last",
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),
             name="last_conv",
         )
     )
@@ -273,33 +275,11 @@ def snn_base_cnn_model(image_shape=(100, 100, 1)):
 
     model.add(Dense(128, activation="relu"))
 
-    # model.add(Conv2D(filters=96, kernel_size=(11, 11), activation='relu', name='conv1_1', strides=4, input_shape=imag_shape), padding='same')
-    # model.add(BatchNormalization(epsilon=1e-06, axis=-1, momentum=0.9))
-    # model.add(MaxPooling2D((3,3), strides=(2, 2)))
-    # model.add(ZeroPadding2D((2, 2)))
-
-    # model.add(Conv2D(filters=256, kernel_size=(5, 5), activation='relu', name='conv2_1', strides=1))
-    # model.add(BatchNormalization(epsilon=1e-06, axis=1, momentum=0.9))
-    # model.add(MaxPooling2D((3,3), strides=(2, 2)))
-    # model.add(Dropout(0.3))
-    # model.add(ZeroPadding2D((1, 1)))
-    #
-    # model.add(Conv2D(filters=384, kernel_size=(3, 3), activation='relu', name='conv3_1', strides=1))
-    # model.add(ZeroPadding2D((1, 1)))
-    #
-    # model.add(Conv2D(filters=256, kernel_size=(3, 3), activation='relu', name='conv3_2', strides=1))
-    # model.add(MaxPooling2D((3,3), strides=(2, 2)))
-    # model.add(Dropout(0.3))
-    # model.add(Flatten(name='flatten'))
-    # model.add(Dense(1024, W_regularizer=L2(l2=0.0005), activation='relu'))
-    # model.add(Dropout(0.5))
-    #
-    # model.add(Dense(128, W_regularizer=L2(l2=0.0005), activation='relu'))
     model.summary()
     return model
 
 
-def snn_model(image_shape=(100, 100, 1), feature_shape=None, feature_type=None):
+def snn_model(image_shape=(150, 150, 1), feature_shape=None, feature_type=None):
 
     if feature_type == "local_solo":
         feature1 = Input(shape=feature_shape, name="patch_input_image1_1")

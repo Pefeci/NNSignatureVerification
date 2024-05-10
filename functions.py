@@ -56,6 +56,9 @@ def callbacks_Stop_checkpoint():
     ]
     return callbacks
 
+def EarlyStopping():
+    stopper = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min', min_delta=0.0001, verbose=1)
+    return stopper
 
 def scheduler(epoch, lr):
     if epoch < 10:
@@ -72,7 +75,8 @@ def CSVLogger(filename):
 
 def callbacks_schelude_lr(filename):
 
-    callback = [LearningRateScheduler(scheduler, verbose=1), CSVLogger(filename)]
+    callback = [LearningRateScheduler(scheduler, verbose=10),
+                 CSVLogger(filename), EarlyStopping()]
     return callback
 
 
@@ -327,7 +331,10 @@ def visualize_with_shap(data, model, pred):
     labels = pred
     labels = np.array(labels)
     print(labels)
-    shap.image_plot(shap_values, labels=labels, show=False)
+    fig = shap.image_plot(shap_values, labels=labels, show=False)
+    plt.savefig('C:/Users/Pefeci/Desktop/plot.png')
+
+
 
 def shuffle_data(data, labels):
     data_shuffled_array = []

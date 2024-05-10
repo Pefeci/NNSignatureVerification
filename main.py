@@ -47,6 +47,8 @@ def cnn_train(
         csv_name = "CNN"
     else:
         csv_name = save_name
+    if size == 0:
+        size = None
 
     data, labels = loader.loader_for_cnn(
         image_width=img_width,
@@ -141,6 +143,7 @@ def snn_train(
     img_width=150,
     img_height=150,
     dataset="cedar",
+    augmented=False,
     size=2000,
     feature_type=None,
     gdps_size=None,
@@ -154,6 +157,7 @@ def snn_train(
         image_width=img_width,
         image_height=img_height,
         dataset=dataset,
+        augmented=augmented,
         size=size,
         gdps_size=gdps_size,
     )
@@ -291,7 +295,7 @@ def main():
     batchsize = int(input("Batch size: "))
     width = 150
     height = 150
-    augmented = False
+    augmented = bool(input("Augmented data (True, ENTER): "))
 
     ans = int(
         input(
@@ -315,7 +319,6 @@ def main():
             feature_type = FEATURES[feature]
 
     if ans == 0:
-        augmented = bool(input("Augmented data (True, ENTER): "))
         size = int(input("Size of data: "))
         cnn_train(
             epochs=epochsize,
@@ -344,11 +347,7 @@ def main():
 
     elif ans == 2 or ans == 3:
         model_dir = input("Enter output dir: ")
-        if ans == 2:
-            size = int(input("Size of data: "))
-            augmented = bool(input("Augmented data (True, ENTER): "))
-        else:
-            size = int(input("Size of pairs: "))
+        size = int(input("Size of data: "))
         for dataset in DATASETS:
             for feature in FEATURES:
                 if feature == "None":
@@ -376,6 +375,7 @@ def main():
                         img_width=width,
                         img_height=height,
                         size=size,
+                        augmented=augmented,
                         dataset=dataset,
                         save_name=save,
                         feature_type=feature,

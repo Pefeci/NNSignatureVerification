@@ -29,7 +29,7 @@ DATASET_NUM_CLASSES = {
     "dutch": 60,
     "chinese": 19,
     "all": 0,
-    "czech": 0,
+    "czech": 34,
     "cedar_test": 1,
     "hindi_test": 4,
     "bengali_test": 3,
@@ -37,7 +37,7 @@ DATASET_NUM_CLASSES = {
     "dutch_test": 4,
     "chinese_test": 1,
     "all_test": 0,
-    "czech_test": 0,
+    "czech_test": 1,
 }
 
 
@@ -52,6 +52,8 @@ DATASET_SIGNATURES_PER_PERSON = {
     "gdps_forg": 30,
     "dutch_org": 24,
     "chinese_org": 24,
+    "czech_org": 24,
+    "czech_forg": 24,
 }
 
 
@@ -253,7 +255,21 @@ def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
             index = 0
 
     if dataset == "czech" or dataset == "czech_test":
-        print("HAHA")
+        if is_genuine:
+            for person in range(num_classes):
+                images = glob.glob(
+                    data_dir + "/czech/genuine/" + str(person + 1) + "/*.jpg"
+                )
+                persons.append(images)
+
+        else:
+            for person in range(num_classes):
+                images = glob.glob(
+                    data_dir + "/czech/forgery/" + str(person + 1) + "/*.jpg"
+                )
+                persons.append(images)
+
+
     return persons
 
 
@@ -555,7 +571,7 @@ def tensor_loader_for_cnn(
 
 
 def convert_pairs_to_image_pairs(
-    pair_array, labels, img_w=150, img_h=150, output_size=0
+    pair_array, labels, img_w=150, img_h=150, output_size=0, augmented=False
 ):
     image_pair_array = []
     new_labels = []
@@ -570,9 +586,19 @@ def convert_pairs_to_image_pairs(
             image2 = convert_to_image(pair[1])
             image_pair_array.append((image1, image2))
             new_labels.append(labels[index])
+            if augmented:
+                rng = np.random.default_rng()
+                augmented_img1 = augment_image(image1)
+                augmented_img2 = augment_image(image2)
+                indices1 = rng.choice(len(augmented_img1), size=len(augmented_img1), replace=False, shuffle=True)
+                indices2 = rng.choice(len(augmented_img2), size=len(augmented_img2), replace=False, shuffle=True)
+                for i in range(len(augmented_img1)):
+                    new_img1 = augmented_img1[indices1[i]]
+                    new_img2 = augmented_img2[indices2[i]]
+                    image_pair_array.append((new_img1, new_img2))
+                    new_labels.append(labels[index])
             index += 1
         return image_pair_array, new_labels
-
     rng = np.random.default_rng()
     indieces = rng.choice(
         len(pair_array), size=output_size, replace=False, shuffle=True
@@ -582,6 +608,18 @@ def convert_pairs_to_image_pairs(
         image2 = convert_to_image(pair_array[i][1])
         image_pair_array.append((image1, image2))
         new_labels.append(labels[i])
+        if augmented:
+            rng = np.random.default_rng()
+            augmented_img1 = augment_image(image1)
+            augmented_img2 = augment_image(image2)
+            indices1 = rng.choice(len(augmented_img1), size=len(augmented_img1), replace=False, shuffle=True)
+            indices2 = rng.choice(len(augmented_img2), size=len(augmented_img2), replace=False, shuffle=True)
+            for j in range(len(augmented_img1)):
+                new_img1 = augmented_img1[indices1[j]]
+                new_img2 = augmented_img2[indices2[j]]
+                image_pair_array.append((new_img1, new_img2))
+                new_labels.append(labels[i])
+
     del pair_array, labels
     return image_pair_array, new_labels
 
@@ -681,9 +719,15 @@ def loader_for_snn(
     image_width=150,
     image_height=150,
     dataset="cedar",
+    augmented=False,
     size=0,
     gdps_size=None,
 ):  # size = 4000
+
+    if augmented and size != 0:
+        size /= 6
+        size = int(size)
+
 
     start_time = time.time()
 
@@ -700,7 +744,7 @@ def loader_for_snn(
     data_pairs, data_labels = make_pairs(orig_data, forg_data)
     print("___________________Nacteni Obrazku__________________")
     data_pairs, data_labels = convert_pairs_to_image_pairs(
-        data_pairs, data_labels, img_w=image_width, img_h=image_height, output_size=size
+        data_pairs, data_labels, img_w=image_width, img_h=image_height, output_size=size, augmented=augmented
     )
     print("_____________________HOTOVO__________________________________")
     end_time = time.time()
