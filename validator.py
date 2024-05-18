@@ -2,6 +2,7 @@ import glob
 
 import cv2
 import numpy as np
+from main import FEATURES
 
 from tensorflow.keras.models import load_model
 import functions
@@ -10,37 +11,50 @@ from functions import visualize_with_shap, prediction_to_label, overlay_heatmap
 from model import make_gradcam_heatmap
 from matplotlib import pyplot as plt
 
-def test_model(datadir="fromServer"):
-    models = glob.glob(datadir + "/*.h5")
-    for i in range(len(models)):
-        print(f"{i}: {models[i]}")
-    index = int(input("Choose model: "))
-    model_path = models[index]
+def evaluate_model(datadir="fromServer", model_path=None, dataset="czech_test", data_dir="test", ):
+    if model_path is None:
+        models = glob.glob(datadir + "/*.h5")
+        print("Available models: ")
+        for i in range(len(models)):
+            print(f"{i}: {models[i]}")
+        index = int(input("Choose model: "))
+        model_path = models[index]
+
     is_cnn = int(input("SNN (0) or CNN (1): "))
-    num_test_samples = int(input("Number of test samples: "))
+    is_feature = int(input("Without features (0) or with features (1): "))
+    if is_feature == 1:
+        print("Available features: ")
+        for i in range(len(FEATURES)):
+            print(f"{i}: {FEATURES[i]}")
+        index = int(input("Choose feature: "))
+        feature_type = FEATURES[i]
+    else:
+        feature_type = None
+
     batch_size = int(input("Batch size: "))
     width = int(input("Image width: "))
     height = int(input("Image height: "))
+    augment_input = int(input("Augment image (y/n): "))
+    if augment_input == "n" or augment_input == "N":
+        augmented = False
+    else:
+        augmented = True
 
     model = load_model(model_path)
 
     if is_cnn == 1:
-        num_test_samples = int(num_test_samples / 2)
         data, labels = loader.loader_for_cnn(
-            data_dir="test",
+            data_dir=data_dir,
             image_width=width,
             image_height=height,
-            augmented=False,
-            size=num_test_samples,
-            dataset="cedar_test",
+            augmented=augmented,
+            dataset=dataset,
         )
     else:
-        print(num_test_samples)
         pairs, labels = loader.loader_for_snn(
-            data_dir="test",
+            data_dir=data_dir,
             image_width=width,
             image_height=height,
-            size=num_test_samples,
             dataset="cedar_test",
         )
     is_eval = 200
@@ -70,7 +84,6 @@ def test_model(datadir="fromServer"):
             for i in range(len(prediction)):
                 print(f"predictions: {prediction[i]} for label: {labels[i]}")
 
-#TODO dodelat pro ostatni datasety a uzivatelsky
 def shap_visualization():
     model = load_model("models/CNN_cedar_None.h5")
     data, labels = loader.loader_for_cnn("test", image_width=100, image_height=100, dataset="cedar_test")
