@@ -59,7 +59,7 @@ DATASET_SIGNATURES_PER_PERSON = {
 
 # Vizualizace dat:
 def plot_images(
-    image_array, image_array_label=[], num_column=5, title="Images in dataset"
+    image_array, image_array_label=[], num_column=5, title="Images in dataset", save_path=None
 ):
     fig, axes = plt.subplots(1, num_column, figsize=(20, 20))
     fig.suptitle(title, fontsize=16)
@@ -74,7 +74,10 @@ def plot_images(
 
     fig.suptitle(title, fontsize=16)
     plt.tight_layout()
-    plt.show(block=True)
+    if save_path is None:
+        plt.show(block=True)
+    else:
+        plt.savefig(save_path)
 
 
 # Loader z cesty
@@ -423,7 +426,7 @@ def augment_image(
             save_image_path = save_path.format(i)
             ndimage.imsave(save_image_path, augmented_image.squeeze())
 
-    #  plot_images(augmented_images, ['rotated', 'sheared', 'zoomed', 'shifted', 'gaussian noise'], title="Augmentation")
+    #plot_images(augmented_images, ['otočený', 'smýknutý', 'přiblížený', 'posunutý', 's gaussovým šumem'], title="Augmentace")
     return augmented_images
 
 

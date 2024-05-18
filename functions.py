@@ -155,7 +155,7 @@ def count_none_white_pixels(image, count_axis=False):
     if count_axis:
         non_white_pixels_rows = np.sum(image == 0, axis=1)
         non_white_pixels_columns = np.sum(image == 0, axis=0)
-        # plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns)
+        #plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns)
         return pixel_count, non_white_pixels_rows, non_white_pixels_columns
     return pixel_count
 
@@ -323,7 +323,7 @@ def save_and_display_gradcam(image, heatmap, cam_path="heatmap.jpg", alpha=0.4):
     show_single_image(superimposed_img)
 
 
-def visualize_with_shap(data, model, pred):
+def visualize_with_shap(data, model, pred, save_path=None):
     shap.initjs()
     masker = shap.maskers.Image("inpaint_telea", data[0].shape)
     explainer = shap.Explainer(model, masker)
@@ -331,9 +331,11 @@ def visualize_with_shap(data, model, pred):
     labels = pred
     labels = np.array(labels)
     print(labels)
-    fig = shap.image_plot(shap_values, labels=labels, show=False)
-    plt.savefig('C:/Users/Pefeci/Desktop/plot.png')
-
+    if save_path:
+        fig = shap.image_plot(shap_values, labels=labels, show=False)
+        plt.savefig(save_path)
+    else:
+        shap.image_plot(shap_values, labels=labels)
 
 
 def shuffle_data(data, labels):
@@ -353,15 +355,15 @@ def prediction_to_label(predictions):
     labels = []
     for prediction in predictions:
         if prediction > 0.5:
-            labels.append(["genuine"])
+            labels.append(["pravý"])
         else:
-            labels.append(["forgery"])
+            labels.append(["falešný"])
     return np.array(labels)
 
 
 def overlay_heatmap(image, heatmap, alpha=0.6, colormap=cv2.COLORMAP_JET):
     # Resize the heatmap to match the size of the input image
-    heatmap_resized = cv2.resize(heatmap, (image.shape[1], image.shape[0]))
+    heatmap_resized = cv2.resize(heatmap, (image.shape[0], image.shape[1]))
     # Handle NaN
     heatmap_resized = np.nan_to_num(heatmap_resized)
     # Scale the heatmap to the range of 0 to 255
