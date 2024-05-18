@@ -7,7 +7,7 @@ tf.config.optimizer.set_experimental_options({"layout_optimizer": False})
 from keras import models
 from keras.layers import Lambda
 from tensorflow.keras.layers import (
-    BatchNormalization,
+    BatchNormalization, # for SNN CEDAR model training
     Concatenate,
     Conv2D,
     Dense,
@@ -46,17 +46,16 @@ def make_gradcam_heatmap(image, used_model, last_conv_name: str, pred_index: int
     return heatmap
 
 
-# solo models
-def cnn_model(image_shape=(150, 150, 1), is_feature=False):
-    # konfigurace vrstev
-    num_conv_filters = 32  # pocet conv. filtru
-    max_pool_size = (2, 2)  # velikost maxpool filtru
-    conv_kernel_size = (3, 3)  # velikost conv. filtru
-    imag_shape = image_shape  # vlastnosti obrazku
-    dropout_prob = 0.25  # pravdepodobnost odstraneni neuronu
 
-    model = Sequential()  # Typ modelu
-    # 1. vrstva
+def cnn_model(image_shape=(150, 150, 1), is_feature=False):
+    num_conv_filters = 32
+    max_pool_size = (2, 2)
+    conv_kernel_size = (3, 3)
+    imag_shape = image_shape
+    dropout_prob = 0.25
+
+    model = Sequential()
+    # 1. Layer
     model.add(
         Conv2D(
             filters=num_conv_filters,
@@ -65,14 +64,13 @@ def cnn_model(image_shape=(150, 150, 1), is_feature=False):
             activation="relu",
             kernel_regularizer=L1L2(
                 l1=0.1e-4, l2=0.1e-5
-            ),  # 1,data_format='channels_last'
-            # bias_regularizer=L1(l1=0.01), activity_regularizer=L2(l2=0.01)
+            ),
         )
     )
     model.add(MaxPooling2D(pool_size=max_pool_size))
     model.add(Dropout(dropout_prob))
 
-    # 2. vrstva
+    # 2. Layer
     model.add(
         Conv2D(
             filters=num_conv_filters * 2,
@@ -81,13 +79,13 @@ def cnn_model(image_shape=(150, 150, 1), is_feature=False):
             activation="relu",
             kernel_regularizer=L1L2(
                 l1=0.1e-4, l2=0.1e-5
-            ),  # ,data_format='channels_last'
-            # bias_regularizer=L1(l1=0.01), activity_regularizer=L2(l2=0.01)
+            ),
         )
     )
     model.add(MaxPooling2D(pool_size=max_pool_size))
     model.add(Dropout(dropout_prob))
-    # 3. vrstva
+
+    # 3. Layer
     model.add(
         Conv2D(
             filters=num_conv_filters * 4,
@@ -96,19 +94,16 @@ def cnn_model(image_shape=(150, 150, 1), is_feature=False):
             activation="relu",
             kernel_regularizer=L1L2(
                 l1=0.1e-4, l2=0.1e-5
-            ),  # ,data_format='channels_last'
-            # bias_regularizer=L1(l1=0.01), activity_regularizer=L2(l2=0.01)
+            ),
         )
     )
     model.add(MaxPooling2D(pool_size=max_pool_size))
     model.add(Dropout(dropout_prob))
 
-    # Plne propojena vrstva
+    # Connected layer
     model.add(Flatten())
     model.add(Dense(512, activation="relu"))
     model.add(Dropout(dropout_prob * 2))
-    # model.add(Dense(128, activation="relu"))
-    # odstraneni neuronu proti overfittingu
     if not is_feature:
         model.add(Dense(1, activation="sigmoid"))
         model.compile(
@@ -120,11 +115,11 @@ def cnn_model(image_shape=(150, 150, 1), is_feature=False):
 
 # Local X normal features
 def cnn_local_features(image_shape=(15, 15, 1)):
-    num_conv_filters = 16  # pocet conv. filtru
-    max_pool_size = (2, 2)  # velikost maxpool filtru
-    conv_kernel_size = (3, 3)  # velikost conv. filtru
-    imag_shape = image_shape  # vlastnosti obrazku
-    dropout_prob = 0.25  # pravdepodobnost odstraneni neuronu
+    num_conv_filters = 16
+    max_pool_size = (2, 2)
+    conv_kernel_size = (3, 3)
+    imag_shape = image_shape
+    dropout_prob = 0.25
     model = Sequential()
     # Layer 1
     model.add(
@@ -220,13 +215,14 @@ def cnn_feature_model(image_shape=(150, 150, 1), feature_shape=None, feature_typ
 
 
 def snn_base_cnn_model(image_shape=(150, 150, 1)):
-    num_conv_filters = 32  # pocet conv. filtru
-    max_pool_size = (2, 2)  # velikost maxpool filtru
-    conv_kernel_size = (3, 3)  # velikost conv. filtru
-    imag_shape = image_shape  # vlastnosti obrazku
-    dropout_prob = 0.25  # pravdepodobnost odstraneni neuronu
+    num_conv_filters = 32
+    max_pool_size = (2, 2)
+    conv_kernel_size = (3, 3)
+    imag_shape = image_shape
+    dropout_prob = 0.25
     model = Sequential()
 
+    # 1. Layer
     model.add(
         Conv2D(
             filters=num_conv_filters,
@@ -234,13 +230,14 @@ def snn_base_cnn_model(image_shape=(150, 150, 1)):
             input_shape=imag_shape,
             activation="relu",
             data_format="channels_last",
-            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5), # Comment for SNN CEDAR
         )
     )
-    #model.add(BatchNormalization(epsilon=1e-05, axis=-1, momentum=0.9))
+    #model.add(BatchNormalization(epsilon=1e-05, axis=-1, momentum=0.9)) # Uncomment FOR SNN CEDAR
     model.add(MaxPool2D(pool_size=max_pool_size))
     model.add(Dropout(dropout_prob))
 
+    # 2. Layer
     model.add(
         Conv2D(
             filters=num_conv_filters * 2,
@@ -248,13 +245,13 @@ def snn_base_cnn_model(image_shape=(150, 150, 1)):
             input_shape=imag_shape,
             activation="relu",
             data_format="channels_last",
-            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5), # Comment for SNN CEDAR
         )
     )
-    #model.add(BatchNormalization(epsilon=1e-06, axis=-1, momentum=0.9))
+    #model.add(BatchNormalization(epsilon=1e-06, axis=-1, momentum=0.9)) # Uncomment FOR SNN CEDAR
     model.add(MaxPool2D(pool_size=max_pool_size))
     model.add(Dropout(dropout_prob))
-
+    # 3. Layer
     model.add(
         Conv2D(
             filters=num_conv_filters * 3,
@@ -262,15 +259,16 @@ def snn_base_cnn_model(image_shape=(150, 150, 1)):
             input_shape=imag_shape,
             activation="relu",
             data_format="channels_last",
-            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5), # Comment for SNN CEDAR
             name="last_conv",
         )
     )
     model.add(MaxPool2D(pool_size=max_pool_size))
     model.add(Dropout(dropout_prob))
 
+    # Connected layer
     model.add(Flatten())
-    model.add(Dense(512, activation="relu"))  # , kernel_regularizer=L2(l2=0.1e-5)
+    model.add(Dense(512, activation="relu"))
     model.add(Dropout(dropout_prob * 2))
 
     model.add(Dense(128, activation="relu"))
@@ -318,7 +316,7 @@ def snn_model(image_shape=(150, 150, 1), feature_shape=None, feature_type=None):
     image2 = Input(shape=(image_shape), name="image2")
     print(f"\nshape of im2 is {image2.shape}")
 
-    # Nahrání obrázků a předzpracování skrze CNN
+    # Load images and preprocces with base CNN network
     preprocessed_image1 = base_network(image1)
     print(preprocessed_image1.shape)
     preprocessed_image2 = base_network(image2)
@@ -374,8 +372,7 @@ def snn_model(image_shape=(150, 150, 1), feature_shape=None, feature_type=None):
         feature2 = Input(shape=(18), name="feature2")
         concat = Concatenate()([image_distance, feature1, feature2])
 
-    # Pro užití lokálních příznaků
-    elif feature_type == "local":
+    if feature_type == "local":
         feature1 = Input(shape=feature_shape, name="patch_input_image1")
         feature2 = Input(shape=feature_shape, name="patch_input_image2")
 
