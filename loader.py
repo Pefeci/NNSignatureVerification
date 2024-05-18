@@ -16,6 +16,7 @@ from scipy import ndimage
 
 import cv2
 import matplotlib.pyplot as plt
+from functions import plot_images
 import numpy as np
 import tensorflow as tf
 tf.config.optimizer.set_experimental_options({"layout_optimizer": False})
@@ -55,51 +56,6 @@ DATASET_SIGNATURES_PER_PERSON = {
     "czech_org": 24,
     "czech_forg": 24,
 }
-
-
-# Vizualizace dat:
-def plot_images(
-    image_array, image_array_label=[], num_column=5, title="Images in dataset", save_path=None
-):
-    fig, axes = plt.subplots(1, num_column, figsize=(20, 20))
-    fig.suptitle(title, fontsize=16)
-    axes = axes.flatten()
-    index = 0
-    for img, ax in zip(image_array, axes):
-        ax.imshow(img, cmap="Greys_r")
-        if image_array_label != []:
-            ax.set_title(image_array_label[index])
-            index += 1
-        # ax.axis('off')
-
-    fig.suptitle(title, fontsize=16)
-    plt.tight_layout()
-    if save_path is None:
-        plt.show(block=True)
-    else:
-        plt.savefig(save_path)
-
-
-# Loader z cesty
-def create_for_tr_ts_val_data(data_dir, dataset="cedar"):
-    num_classes = DATASET_NUM_CLASSES[dataset]
-    images = glob.glob(data_dir + "/*.png")
-    num_of_signatures = int(len(images) / num_classes)  # this only works with Cedar
-    # print(images)
-    # labels = []
-    persons = []
-    index = 0
-    for person in range(num_classes):
-        signatures = []
-        for signature in range(num_of_signatures):
-            signatures.append(images[index])
-            index += 1
-        persons.append(signatures)
-    train_data, test_data, val_data = persons[:43], persons[43:45], persons[45:]
-    # print(train_data)
-    # print(test_data)
-    # print(val_data)
-    return train_data, test_data, val_data
 
 
 def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
@@ -383,7 +339,7 @@ def rand_noise(imag):
     return img
 
 
-# Agmentator
+# Augmentator
 def augment_image(
     img,
     rotate=True,
@@ -448,22 +404,20 @@ def convert_array_to_image_labels(
             else:
                 index += 1
         for img in person:
-            img = convert_to_image(img)
+            img = convert_to_image(img, img_w=image_width, image_height=image_height)
             image_array.append(img)
             labels.append(1 if genuine else 0)
             if augmented:
                 augmented_images = augment_image(img)
                 image_array.extend(augmented_images)
                 # augmented_images.insert(0,img)
-                # augmented_labels = ['Původní', 'Otočený', 'Smýknutý', 'Přiblížený/Oddálený', 'Posunutý', 'Ss šumem']
+                # augmented_labels = ['Original', 'Rotate', 'Shear', 'Zoom', 'Transition', 'Gaussian noise']
                 # plot_images(augmented_images,  num_column=6,
                 #            title='Upravené obrázky') #THIS ONLY FOR SHOWING PURPOSES
                 if genuine:
                     labels.extend([1 for i in range(len(augmented_images))])
                 else:
                     labels.extend([0 for i in range(len(augmented_images))])
-    # image_array = np.array(image_array)
-    # labels = np.array(labels, dtype=np.float32)
     if size and size < len(labels):
         image_sized_array = []
         label_sized_array = []
@@ -494,23 +448,22 @@ def loader_for_cnn(
     dataset="cedar",
     augmented=False,
     size=None,
+    shuffle=True,
 ):
 
     start_time = time.time()
 
     orig_data = create_data(data_dir, dataset=dataset, is_genuine=True)
     forg_data = create_data(data_dir, dataset=dataset, is_genuine=False)
-    print(f"ORIG DATA: {len(orig_data)}")
-    print(f"FORG DATA: {len(forg_data)}")
+    print(f"Genuine DATA: {len(orig_data)}")
+    print(f"Forgery DATA: {len(forg_data)}")
     orig_data, orig_labels = convert_array_to_image_labels(
-        orig_data, genuine=True, augmented=augmented, size=size
+        orig_data, image_width=image_width, image_height=image_height, genuine=True, augmented=augmented, size=size
     )
     forg_data, forg_labels = convert_array_to_image_labels(
-        forg_data, genuine=False, augmented=augmented, size=size
+        forg_data,image_width=image_width, image_height=image_height, genuine=False, augmented=augmented, size=size
     )
-    print(f"ORIG DATA: {len(orig_data)}")
-    print(f"FORG DATA: {len(forg_data)}")
-    data, labels = combine_orig_forg(orig_data, forg_data, orig_labels, forg_labels)
+    data, labels = combine_orig_forg(orig_data, forg_data, orig_labels, forg_labels, shuffle=shuffle)
     print(f"Dataset: {len(data)} and labels: {len(labels)}")
 
     data, labels = np.array(data), np.array(labels, dtype=np.float32)
@@ -519,60 +472,7 @@ def loader_for_cnn(
     print(end_time - start_time)
     return data, labels
 
-
-def tensor_loader_for_cnn(
-    data_dir=None, image_width=200, image_height=200, batch_size=16
-):
-    # mam tam osobni s dlouhym i takze musim solo zadat ze data
-    if not data_dir:
-        data_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
-    print(data_dir)
-
-    # Hozeni dat do datasetu a roztrideni na VAL a TRAIN datasety
-    train_ds = tf.keras.utils.image_dataset_from_directory(
-        data_dir,
-        validation_split=0.2,
-        subset="training",
-        seed=123,
-        image_size=(image_width, image_height),
-        batch_size=batch_size,
-        color_mode="grayscale",
-        shuffle=True,
-        # crop_to_aspect_ratio=True,
-    )
-    val_ds = tf.keras.utils.image_dataset_from_directory(
-        data_dir,
-        validation_split=0.2,
-        subset="validation",
-        seed=123,
-        image_size=(image_width, image_height),
-        batch_size=batch_size,
-        color_mode="grayscale",
-        shuffle=True,
-        # crop_to_aspect_ratio=True,
-    )
-
-    class_names = train_ds.class_names
-    print(train_ds)
-    print(class_names)
-    class_names = val_ds.class_names
-    print(val_ds)
-    print(class_names)
-
-    print(
-        "??????????????????__________________________________________?????????????????????"
-    )
-
-    # iterator = iter(train_ds)
-    # sample_of_train_dataset, _ = next(iterator)
-
-    # plot_images(sample_of_train_dataset[:5])
-    return train_ds, val_ds
-
-
 # SNN LOADER
-
-
 def convert_pairs_to_image_pairs(
     pair_array, labels, img_w=150, img_h=150, output_size=0, augmented=False
 ):
@@ -585,8 +485,8 @@ def convert_pairs_to_image_pairs(
         for pair in pair_array:
             if index == output_size:
                 break
-            image1 = convert_to_image(pair[0])
-            image2 = convert_to_image(pair[1])
+            image1 = convert_to_image(pair[0], img_w=img_w, img_h=img_h)
+            image2 = convert_to_image(pair[1], img_w=img_w, img_h=img_h)
             image_pair_array.append((image1, image2))
             new_labels.append(labels[index])
             if augmented:
@@ -607,8 +507,8 @@ def convert_pairs_to_image_pairs(
         len(pair_array), size=output_size, replace=False, shuffle=True
     )
     for i in indieces:
-        image1 = convert_to_image(pair_array[i][0])
-        image2 = convert_to_image(pair_array[i][1])
+        image1 = convert_to_image(pair_array[i][0], img_w=img_w, img_h=img_h)
+        image2 = convert_to_image(pair_array[i][1], img_w=img_w, img_h=img_h)
         image_pair_array.append((image1, image2))
         new_labels.append(labels[i])
         if augmented:
@@ -643,78 +543,11 @@ def make_pairs(orig_data, forg_data):
 
     label_pairs = orig_pair_labels + orig_forg_labels
     del orig_data, forg_data
-    print(f"len of orig_pars: {len(orig_pairs)}")
-    print(f"len of forg_pairs {len(forg_pairs)}")
+    print(f"Len of genuine pairs: {len(orig_pairs)}")
+    print(f"Len of forgery pairs {len(forg_pairs)}")
     del orig_pairs, forg_pairs
-    print("final results")
-    print(len(data_pairs))
-    print(len(label_pairs))
-    print("testing accuracy")
-    if len(data_pairs) > 5:
-        for i in range(5):
-            num = np.random.randint(0, len(data_pairs))
-            testing_pair = data_pairs[num]
-            print(len(testing_pair))
-            print(f"{testing_pair[0]} , {testing_pair[1]} = {label_pairs[num]}")
+    print(f"Len of final pairs: {len(data_pairs)}")
     return data_pairs, label_pairs
-
-
-def visualize_snn_sample_signature_for_signer(
-    orig_data, forg_data, image_width=200, image_height=200
-):
-    k = np.random.randint(len(orig_data))
-    orig_data_signature = random.sample(orig_data[k], 2)
-    forg_data_signature = random.sample(forg_data[k], 1)
-    print(orig_data_signature[0])
-    print(orig_data_signature[1])
-    print(forg_data_signature[0])
-    orig_im1 = cv2.imread(orig_data_signature[0], 0)
-    orig_im1 = cv2.resize(orig_im1, (image_width, image_height))
-    orig_im2 = cv2.imread(orig_data_signature[1], 0)
-    orig_im2 = cv2.resize(orig_im2, (image_width, image_height))
-    forg_im = cv2.imread(forg_data_signature[0], 0)
-    forg_im = cv2.resize(forg_im, (image_width, image_height))
-    img_array_to_show = [orig_im1, orig_im2, forg_im]
-    img_array_label = ["genuine", "genuine", "forgery"]
-    plot_images(img_array_to_show, img_array_label, num_column=len(img_array_to_show))
-
-
-def show_pair(pairs, labels, title="Image pairs", columns=2, rows=1):
-    fig, axes = plt.subplots(rows, columns, figsize=(columns * 5, rows * 2))
-    fig.suptitle(title)
-    if rows == 1:
-        axes[0].imshow(pairs[0][0], cmap="gray")
-        axes[0].set_title(labels[0][0])
-        axes[0].axis("off")
-        axes[1].imshow(pairs[0][1], cmap="gray")
-        axes[1].set_title(labels[0][1])
-        axes[1].axis("off")
-    else:
-        for row in range(rows):
-            img_pair = pairs[row]
-            label = labels[row]
-            for column in range(columns):
-                axes[row, column].imshow(img_pair[column], cmap="gray")
-                axes[row, column].set_title(label[column])
-                axes[row, column].axis("off")
-    plt.tight_layout()
-    plt.subplots_adjust(wspace=0.4, hspace=0.4)
-    plt.show(block=True)
-
-
-def visualize_snn_pair_sample(
-    pair_array, label_array, title="Pair sample", numer_of_samples=5
-):
-    pairs = []
-    label = []
-    for i in range(numer_of_samples):
-        k = np.random.randint(0, len(pair_array))
-        img1 = pair_array[k][0]
-        img2 = pair_array[k][1]
-        pairs.append([img1, img2])
-        label.append(["Geunine", "Genuine" if label_array[k] == 1 else "Forgery"])
-
-    # show_pair(pairs, label, title=title, columns=2, rows=numer_of_samples)
 
 
 def loader_for_snn(
@@ -725,7 +558,7 @@ def loader_for_snn(
     augmented=False,
     size=0,
     gdps_size=None,
-):  # size = 4000
+):
 
     if augmented and size != 0:
         size /= 6
@@ -740,20 +573,17 @@ def loader_for_snn(
     forg_data = create_data(
         data_dir, dataset=dataset, is_genuine=False, gdps_size=gdps_size
     )
-    print(f"ORIG : {len(orig_data)}")
-    print(f"FORG : {len(forg_data)}")
 
-    print("___________________VYTVARENI PARU__________________")
+    print("___________________Creating pairs__________________")
     data_pairs, data_labels = make_pairs(orig_data, forg_data)
-    print("___________________Nacteni Obrazku__________________")
-    data_pairs, data_labels = convert_pairs_to_image_pairs(
-        data_pairs, data_labels, img_w=image_width, img_h=image_height, output_size=size, augmented=augmented
-    )
-    print("_____________________HOTOVO__________________________________")
+    print("___________________Loading images__________________")
+    data_pairs, data_labels = convert_pairs_to_image_pairs(data_pairs, data_labels, img_w=image_width,
+                                                           img_h=image_height, output_size=size, augmented=augmented)
+    print("_____________________Done__________________________________")
     end_time = time.time()
-    print(f"trvalo to : {end_time - start_time}")
+    print(f"It took : {end_time - start_time}")
     print(
-        f"Data: {len(data_pairs)} , labels: {len(data_labels)} and shape = {data_pairs[0][0].shape}"
+        f"Created Data: {len(data_pairs)} , labels: {len(data_labels)} with data shape = {data_pairs[0][0].shape}"
     )
     # visualize_snn_pair_sample(data_pairs, data_labels, title='Data pairs', numer_of_samples=5)
     data_pairs, data_labels = np.array(data_pairs), np.array(
