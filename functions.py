@@ -1,13 +1,17 @@
 import matplotlib as mpl
+
 mpl.use("TkAgg")
+import random
+
 import matplotlib.pyplot as plt
 import numpy as np
 import shap
 import tensorflow as tf
+
 tf.config.optimizer.set_experimental_options({"layout_optimizer": False})
-from keras import backend as K
 import cv2
 import pywt
+from keras import backend as K
 from keras import utils
 from keras.callbacks import (
     EarlyStopping,
@@ -16,13 +20,112 @@ from keras.callbacks import (
     ReduceLROnPlateau,
 )
 
-# TODO TODO TODO Natrenovat pro kazdou mnozinu, a udelat experimenty, spojit mnoziny a natrenovat na te vizulizovat pri predikci
-# TODO TODO Predelat main aby to davalo vetsi smysl, pridat installation do README a requirements a dopsat to konecne kurva
 
+# Visualizations
 def show_single_image(img):
     plt.imshow(img, cmap="gray")
     plt.axis("off")
     plt.show(block=True)
+
+
+def plot_images(
+    image_array,
+    image_array_label=[],
+    num_column=5,
+    title="Images in dataset",
+    save_path=None,
+):
+    fig, axes = plt.subplots(1, num_column, figsize=(20, 20))
+    fig.suptitle(title, fontsize=16)
+    axes = axes.flatten()
+    index = 0
+    for img, ax in zip(image_array, axes):
+        ax.imshow(img, cmap="Greys_r")
+        if image_array_label != []:
+            ax.set_title(image_array_label[index])
+            index += 1
+        # ax.axis('off')
+
+    fig.suptitle(title, fontsize=16)
+    plt.tight_layout()
+    if save_path is None:
+        plt.show(block=True)
+    else:
+        plt.savefig(save_path)
+
+
+def plot_training(hist):
+    fig = plt.figure(figsize=(7, 7))
+    plt.plot(hist.history["loss"], color="teal", label="loss")
+    plt.plot(hist.history["val_loss"], color="orange", label="val_loss")
+    fig.suptitle("Loss", fontsize=20)
+    plt.legend(loc="upper left")
+    plt.show(block=True)
+
+    fig = plt.figure(figsize=(7, 7))
+    plt.plot(hist.history["accuracy"], color="teal", label="accuracy")
+    plt.plot(hist.history["val_accuracy"], color="orange", label="val_accuracy")
+    fig.suptitle("Accuracy", fontsize=20)
+    plt.legend(loc="upper left")
+    plt.show(block=True)
+
+
+def visualize_snn_sample_signature_for_signer(
+    orig_data, forg_data, image_width=200, image_height=200
+):
+    k = np.random.randint(len(orig_data))
+    orig_data_signature = random.sample(orig_data[k], 2)
+    forg_data_signature = random.sample(forg_data[k], 1)
+    print(orig_data_signature[0])
+    print(orig_data_signature[1])
+    print(forg_data_signature[0])
+    orig_im1 = cv2.imread(orig_data_signature[0], 0)
+    orig_im1 = cv2.resize(orig_im1, (image_width, image_height))
+    orig_im2 = cv2.imread(orig_data_signature[1], 0)
+    orig_im2 = cv2.resize(orig_im2, (image_width, image_height))
+    forg_im = cv2.imread(forg_data_signature[0], 0)
+    forg_im = cv2.resize(forg_im, (image_width, image_height))
+    img_array_to_show = [orig_im1, orig_im2, forg_im]
+    img_array_label = ["genuine", "genuine", "forgery"]
+    plot_images(img_array_to_show, img_array_label, num_column=len(img_array_to_show))
+
+
+def show_pair(pairs, labels, title="Image pairs", columns=2, rows=1):
+    fig, axes = plt.subplots(rows, columns, figsize=(columns * 5, rows * 2))
+    fig.suptitle(title)
+    if rows == 1:
+        axes[0].imshow(pairs[0][0], cmap="gray")
+        axes[0].set_title(labels[0][0])
+        axes[0].axis("off")
+        axes[1].imshow(pairs[0][1], cmap="gray")
+        axes[1].set_title(labels[0][1])
+        axes[1].axis("off")
+    else:
+        for row in range(rows):
+            img_pair = pairs[row]
+            label = labels[row]
+            for column in range(columns):
+                axes[row, column].imshow(img_pair[column], cmap="gray")
+                axes[row, column].set_title(label[column])
+                axes[row, column].axis("off")
+    plt.tight_layout()
+    plt.subplots_adjust(wspace=0.4, hspace=0.4)
+    plt.show(block=True)
+
+
+def visualize_snn_pair_sample(
+    pair_array, label_array, title="Pair sample", numer_of_samples=5
+):
+    pairs = []
+    label = []
+    for i in range(numer_of_samples):
+        k = np.random.randint(0, len(pair_array))
+        img1 = pair_array[k][0]
+        img2 = pair_array[k][1]
+        pairs.append([img1, img2])
+        label.append(["Genuine", "Genuine" if label_array[k] == 1 else "Forgery"])
+
+    show_pair(pairs, label, title=title, columns=2, rows=numer_of_samples)
 
 
 # Euclidan distance
@@ -56,9 +159,13 @@ def callbacks_Stop_checkpoint():
     ]
     return callbacks
 
+
 def EarlyStopping():
-    stopper = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min', min_delta=0.0001, verbose=1)
+    stopper = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss", patience=10, mode="min", min_delta=0.0001, verbose=1
+    )
     return stopper
+
 
 def scheduler(epoch, lr):
     if epoch < 10:
@@ -75,12 +182,14 @@ def CSVLogger(filename):
 
 def callbacks_schelude_lr(filename):
 
-    callback = [LearningRateScheduler(scheduler, verbose=10),
-                 CSVLogger(filename), EarlyStopping()]
+    callback = [
+        LearningRateScheduler(scheduler, verbose=10),
+        CSVLogger(filename),
+        EarlyStopping(),
+    ]
     return callback
 
 
-# Funkce na získání více pocet tahu
 def get_image_strokes(img):
     _, inverted_image = cv2.threshold(img, 0.5, 1, cv2.THRESH_BINARY_INV)
     inverted_image = np.array(inverted_image, dtype=np.uint8)
@@ -91,7 +200,6 @@ def get_image_strokes(img):
     return strokes
 
 
-# Local features
 def image_for_local(image, size=15):
     small_image_array = []
     for row in range(0, image.shape[0], size):
@@ -102,22 +210,13 @@ def image_for_local(image, size=15):
     return small_image_array
 
 
-# Vlnková transformace
 def wavelet_transformation(image):
-    coeffs = pywt.dwt2(
-        data=image, wavelet="haar"
-    )  # bior1.3 zkus všechny další experiment: haar, db2, bior1.3, sym, coif (https://pywavelets.readthedocs.io/en/latest/regression/wavelet.html)
+    coeffs = pywt.dwt2(data=image, wavelet="haar")
     cA, (cH, cV, cD) = coeffs
 
-    # normalizace
+    # normalized
     cA = (cA - cA.min()) / (cA.max() - cA.min())
     cH = (cH - cH.min()) / (cH.max() - cH.min())
-    # Prahování
-    # _, cA = cv2.threshold(cA, 0.1, 1, cv2.THRESH_BINARY)
-    # _, cH = cv2.threshold(cH, 0.1, 1, cv2.THRESH_BINARY)
-    # CV a CD Nejsou potreba nic se na nich nestane nebo jsem lopata
-
-    # Udělání jedné featury
     cA = cA.flatten()
     cH = cH.flatten()
     wavelet_features = np.concatenate((cA, cH))
@@ -125,18 +224,15 @@ def wavelet_transformation(image):
     return wavelet_features
 
 
-# Count of pixels and representation of count of pixel upon y and x axis (histogram):
 def plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns):
-    # Plot non-white pixels in rows
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 2, 1)
     plt.plot(non_white_pixels_rows, range(len(non_white_pixels_rows)), color="blue")
     plt.title("Non-white Pixels in Rows")
     plt.xlabel("Count")
     plt.ylabel("Row Index")
-    plt.gca().invert_yaxis()  # Invert y-axis to match image orientation
+    plt.gca().invert_yaxis()
 
-    # Plot non-white pixels in columns
     plt.subplot(1, 2, 2)
     plt.plot(
         range(len(non_white_pixels_columns)), non_white_pixels_columns, color="red"
@@ -150,17 +246,18 @@ def plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns):
 
 
 # Histogram
-def count_none_white_pixels(image, count_axis=False):
+def count_none_white_pixels(image, count_axis=False, show=False):
     pixel_count = np.sum(image == 0)
     if count_axis:
         non_white_pixels_rows = np.sum(image == 0, axis=1)
         non_white_pixels_columns = np.sum(image == 0, axis=0)
-        #plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns)
+        if show:
+             plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns)
         return pixel_count, non_white_pixels_rows, non_white_pixels_columns
     return pixel_count
 
 
-# Center of mass, Normalized area ,Aspect Ratio, Tri surface feature,six fold surface feature and Transition feature
+# Center of mass, Normalized area ,Aspect Ratio, Tri surface feature,six-fold surface feature and Transition feature
 # https://www.researchgate.net/publication/258650160_Handwritten_Signature_Verification_using_Neural_Network
 def calculate_center_of_mass(image):
     width = image.shape[1]
@@ -199,8 +296,8 @@ def calculate_center_of_mass(image):
 def calculate_normalized_shape(image):
     image = image[:, :, 0]
     img_area = np.sum(image == 0)
-    pixel_indieces = np.where(image == 0)
-    rows, cols = pixel_indieces
+    pixel_indices = np.where(image == 0)
+    rows, cols = pixel_indices
     if len(rows) == 0 or len(cols) == 0:
         return 0
     bounding_box_area = (max(rows) - min(rows) + 1) * (max(cols) - min(cols) + 1)
@@ -210,8 +307,8 @@ def calculate_normalized_shape(image):
 
 def calculate_aspect_ratio(image):
     image = image[:, :, 0]
-    pixel_indieces = np.where(image == 0)
-    rows, cols = pixel_indieces
+    pixel_indices = np.where(image == 0)
+    rows, cols = pixel_indices
     if len(rows) == 0 or len(cols) == 0:
         return 0
     height = max(rows) - min(rows) + 1
@@ -243,15 +340,12 @@ def six_fold_surface(image):
             features.append([0, 0])
             all_features.append(features)
         else:
-            boundingbox_width = [min(cols), max(cols)]  # width
-            boundingbox_height = [min(rows), max(rows)]  # height
+            boundingbox_width = [min(cols), max(cols)]
+            boundingbox_height = [min(rows), max(rows)]
             bounding_box = [
                 boundingbox_width[1] - boundingbox_width[0] + 1,
                 boundingbox_height[1] - boundingbox_height[0] + 1,
             ]
-
-            # print(f"Width of bound {boundingbox_width}")
-            # print(f"Height of bound {boundingbox_height}")
             Mx = cv2.moments(
                 part[
                     boundingbox_height[0] : boundingbox_height[1],
@@ -260,7 +354,6 @@ def six_fold_surface(image):
             )
             center_of_mass_x = Mx["m10"] / Mx["m00"] if Mx["m00"] != 0 else 0
             center_of_mass_y = Mx["m01"] / Mx["m00"] if Mx["m00"] != 0 else 0
-            # print(f"Mass = {center_of_mass_x} x {center_of_mass_y}")
             area_above_center = np.sum(
                 part[
                     boundingbox_height[0] : (
@@ -279,28 +372,18 @@ def six_fold_surface(image):
                 ]
                 == 0
             )
-            # print(f"Bellow {area_bellow_center} and Above {area_above_center}")
-            # show_single_image(part[boundingbox_height[0]:(boundingbox_height[0] + int( center_of_mass_y)), boundingbox_width[0]:boundingbox_width[1]])
-            # show_single_image(part[(boundingbox_height[0] + int(center_of_mass_y)):boundingbox_height[1], boundingbox_width[0]:boundingbox_width[1]])
-            # center_of_mass_x = center_of_mass_x / (boundingbox_width[1] - boundingbox_width[0]) #normalized
-            # center_of_mass_y = center_of_mass_y / (boundingbox_height[1] - boundingbox_height[0])
-            # DLE BOUNDING BOXU
-            # area_above_center /= ((int(center_of_mass_y) + boundingbox_height[0]) * bounding_box[0]) # normalize
-            # area_bellow_center /= ((boundingbox_height[1] - (int(center_of_mass_y) + boundingbox_height[0])) * bounding_box[0])
-            # DLE PARTAJE
             area_above_center /= (
                 boundingbox_height[0] + int(center_of_mass_y)
-            ) * part.shape[1]
+            ) * bounding_box[0]
             area_bellow_center /= (
                 part.shape[0] - (boundingbox_height[0] + int(center_of_mass_y))
             ) * bounding_box[0]
             center_of_mass_x = center_of_mass_x / (bounding_box[0])  # normalized
             center_of_mass_y = center_of_mass_y / (bounding_box[1])
-            bounding_box[0] /= part.shape[1]  # normalize
+            bounding_box[0] /= part.shape[1]  # normalized
             bounding_box[1] /= part.shape[0]
             features.append(bounding_box)
             features.append([center_of_mass_x, center_of_mass_y])
-            # print(f"Bellow {area_bellow_center} and Above {area_above_center}")
 
             features.append([area_bellow_center, area_above_center])
             all_features.append(features)
@@ -330,10 +413,10 @@ def visualize_with_shap(data, model, pred, save_path=None):
     shap_values = explainer(data, outputs=shap.Explanation.argsort.flip[:1])
     labels = pred
     labels = np.array(labels)
-    print(labels)
     if save_path:
         fig = shap.image_plot(shap_values, labels=labels, show=False)
         plt.savefig(save_path)
+        print("fig saved")
     else:
         shap.image_plot(shap_values, labels=labels)
 
@@ -342,7 +425,7 @@ def shuffle_data(data, labels):
     data_shuffled_array = []
     label_shuffled_array = []
     rng = np.random.default_rng()
-    indices = rng.choice(len(data),size=len(data), replace=False, shuffle=True)
+    indices = rng.choice(len(data), size=len(data), replace=False, shuffle=True)
     for i in indices:
         image = data[i]
         data_shuffled_array.append(image)
@@ -351,13 +434,25 @@ def shuffle_data(data, labels):
     label_shuffled_array = np.array(label_shuffled_array, dtype=np.float32)
     return data_shuffled_array, label_shuffled_array
 
+
 def prediction_to_label(predictions):
     labels = []
-    for prediction in predictions:
-        if prediction > 0.5:
-            labels.append(["pravý"])
+    if type(predictions) is float:
+        if np.isnan(predictions):
+            labels.append(["Could not predict"])
+        if predictions > 0.5:
+            labels.append(["Genuine"])
         else:
-            labels.append(["falešný"])
+            labels.append(["Forgery"])
+    else:
+        for prediction in predictions:
+            if np.isnan(prediction):
+                labels.append(["Could not predict"])
+                continue
+            if prediction > 0.5:
+                labels.append(["Genuine"])
+            else:
+                labels.append(["Forgery"])
     return np.array(labels)
 
 
@@ -376,7 +471,13 @@ def overlay_heatmap(image, heatmap, alpha=0.6, colormap=cv2.COLORMAP_JET):
     image_uint8 = (image * 255).astype(np.uint8)
 
     # Overlay the heatmap onto the original image
-    overlaid_image = cv2.addWeighted(cv2.cvtColor(image_uint8, cv2.COLOR_GRAY2BGR), alpha, heatmap_colored, 1 - alpha, 0)
+    overlaid_image = cv2.addWeighted(
+        cv2.cvtColor(image_uint8, cv2.COLOR_GRAY2BGR),
+        alpha,
+        heatmap_colored,
+        1 - alpha,
+        0,
+    )
 
     return overlaid_image
 

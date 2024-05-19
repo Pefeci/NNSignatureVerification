@@ -4,58 +4,21 @@
 
 import glob
 import itertools
-import os
 import random
 import time
 
-import matplotlib
-matplotlib.use("Agg")
+import cv2
+import numpy as np
 import sklearn.utils
+import tensorflow as tf
 from scipy import ndimage
 
-
-import cv2
-import matplotlib.pyplot as plt
 from functions import plot_images
-import numpy as np
-import tensorflow as tf
+
 tf.config.optimizer.set_experimental_options({"layout_optimizer": False})
 from PIL import Image
 
-DATASET_NUM_CLASSES = {
-    "cedar": 53,
-    "hindi": 156,
-    "bengali": 97,
-    "gdps": 3990,
-    "dutch": 60,
-    "chinese": 19,
-    "all": 0,
-    "czech": 34,
-    "cedar_test": 1,
-    "hindi_test": 4,
-    "bengali_test": 3,
-    "gdps_test": 10,
-    "dutch_test": 4,
-    "chinese_test": 1,
-    "all_test": 0,
-    "czech_test": 1,
-}
-
-
-DATASET_SIGNATURES_PER_PERSON = {
-    "cedar_org": 24,
-    "cedar_forg": 24,
-    "bengali_org": 24,
-    "bengali_forg": 30,
-    "hindi_org": 24,
-    "hindi_forg": 30,
-    "gdps_org": 24,
-    "gdps_forg": 30,
-    "dutch_org": 24,
-    "chinese_org": 24,
-    "czech_org": 24,
-    "czech_forg": 24,
-}
+from conf import DATASET_NUM_CLASSES, DATASET_SIGNATURES_PER_PERSON
 
 
 def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
@@ -228,11 +191,9 @@ def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
                 )
                 persons.append(images)
 
-
     return persons
 
 
-# menic na obrazky
 def convert_to_image(image_path, img_w=150, img_h=150):
     img = Image.open(image_path)
     img = img.resize((img_w, img_h))
@@ -382,7 +343,7 @@ def augment_image(
             save_image_path = save_path.format(i)
             ndimage.imsave(save_image_path, augmented_image.squeeze())
 
-    #plot_images(augmented_images, ['otočený', 'smýknutý', 'přiblížený', 'posunutý', 's gaussovým šumem'], title="Augmentace")
+    # plot_images(augmented_images, ['otočený', 'smýknutý', 'přiblížený', 'posunutý', 's gaussovým šumem'], title="Augmentace")
     return augmented_images
 
 
@@ -404,7 +365,7 @@ def convert_array_to_image_labels(
             else:
                 index += 1
         for img in person:
-            img = convert_to_image(img, img_w=image_width, image_height=image_height)
+            img = convert_to_image(img, img_w=image_width, img_h=image_height)
             image_array.append(img)
             labels.append(1 if genuine else 0)
             if augmented:
@@ -450,6 +411,9 @@ def loader_for_cnn(
     size=None,
     shuffle=True,
 ):
+    if size:
+        size /= 2
+        size = int(size)
 
     start_time = time.time()
 
@@ -458,19 +422,32 @@ def loader_for_cnn(
     print(f"Genuine DATA: {len(orig_data)}")
     print(f"Forgery DATA: {len(forg_data)}")
     orig_data, orig_labels = convert_array_to_image_labels(
-        orig_data, image_width=image_width, image_height=image_height, genuine=True, augmented=augmented, size=size
+        orig_data,
+        image_width=image_width,
+        image_height=image_height,
+        genuine=True,
+        augmented=augmented,
+        size=size,
     )
     forg_data, forg_labels = convert_array_to_image_labels(
-        forg_data,image_width=image_width, image_height=image_height, genuine=False, augmented=augmented, size=size
+        forg_data,
+        image_width=image_width,
+        image_height=image_height,
+        genuine=False,
+        augmented=augmented,
+        size=size,
     )
-    data, labels = combine_orig_forg(orig_data, forg_data, orig_labels, forg_labels, shuffle=shuffle)
+    data, labels = combine_orig_forg(
+        orig_data, forg_data, orig_labels, forg_labels, shuffle=shuffle
+    )
     print(f"Dataset: {len(data)} and labels: {len(labels)}")
 
     data, labels = np.array(data), np.array(labels, dtype=np.float32)
 
     end_time = time.time()
-    print(end_time - start_time)
+    print(f"It took {(end_time - start_time):.2f}")
     return data, labels
+
 
 # SNN LOADER
 def convert_pairs_to_image_pairs(
@@ -493,8 +470,18 @@ def convert_pairs_to_image_pairs(
                 rng = np.random.default_rng()
                 augmented_img1 = augment_image(image1)
                 augmented_img2 = augment_image(image2)
-                indices1 = rng.choice(len(augmented_img1), size=len(augmented_img1), replace=False, shuffle=True)
-                indices2 = rng.choice(len(augmented_img2), size=len(augmented_img2), replace=False, shuffle=True)
+                indices1 = rng.choice(
+                    len(augmented_img1),
+                    size=len(augmented_img1),
+                    replace=False,
+                    shuffle=True,
+                )
+                indices2 = rng.choice(
+                    len(augmented_img2),
+                    size=len(augmented_img2),
+                    replace=False,
+                    shuffle=True,
+                )
                 for i in range(len(augmented_img1)):
                     new_img1 = augmented_img1[indices1[i]]
                     new_img2 = augmented_img2[indices2[i]]
@@ -515,8 +502,18 @@ def convert_pairs_to_image_pairs(
             rng = np.random.default_rng()
             augmented_img1 = augment_image(image1)
             augmented_img2 = augment_image(image2)
-            indices1 = rng.choice(len(augmented_img1), size=len(augmented_img1), replace=False, shuffle=True)
-            indices2 = rng.choice(len(augmented_img2), size=len(augmented_img2), replace=False, shuffle=True)
+            indices1 = rng.choice(
+                len(augmented_img1),
+                size=len(augmented_img1),
+                replace=False,
+                shuffle=True,
+            )
+            indices2 = rng.choice(
+                len(augmented_img2),
+                size=len(augmented_img2),
+                replace=False,
+                shuffle=True,
+            )
             for j in range(len(augmented_img1)):
                 new_img1 = augmented_img1[indices1[j]]
                 new_img2 = augmented_img2[indices2[j]]
@@ -564,7 +561,6 @@ def loader_for_snn(
         size /= 6
         size = int(size)
 
-
     start_time = time.time()
 
     orig_data = create_data(
@@ -577,11 +573,17 @@ def loader_for_snn(
     print("___________________Creating pairs__________________")
     data_pairs, data_labels = make_pairs(orig_data, forg_data)
     print("___________________Loading images__________________")
-    data_pairs, data_labels = convert_pairs_to_image_pairs(data_pairs, data_labels, img_w=image_width,
-                                                           img_h=image_height, output_size=size, augmented=augmented)
+    data_pairs, data_labels = convert_pairs_to_image_pairs(
+        data_pairs,
+        data_labels,
+        img_w=image_width,
+        img_h=image_height,
+        output_size=size,
+        augmented=augmented,
+    )
     print("_____________________Done__________________________________")
     end_time = time.time()
-    print(f"It took : {end_time - start_time}")
+    print(f"It took : {(end_time - start_time):.2f}")
     print(
         f"Created Data: {len(data_pairs)} , labels: {len(data_labels)} with data shape = {data_pairs[0][0].shape}"
     )

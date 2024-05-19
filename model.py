@@ -3,11 +3,12 @@
 """
 
 import tensorflow as tf
+
 tf.config.optimizer.set_experimental_options({"layout_optimizer": False})
 from keras import models
 from keras.layers import Lambda
+from tensorflow.keras.layers import BatchNormalization  # for SNN CEDAR model training
 from tensorflow.keras.layers import (
-    BatchNormalization, # for SNN CEDAR model training
     Concatenate,
     Conv2D,
     Dense,
@@ -19,10 +20,11 @@ from tensorflow.keras.layers import (
 )
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.regularizers import L1L2
+
 import functions
 
 
-def make_gradcam_heatmap(image, used_model, last_conv_name: str, pred_index: int):
+def make_gradcam_heatmap(image, used_model, last_conv_name: str, pred_index):
 
     grad_model = models.Model(
         used_model.inputs,
@@ -46,7 +48,6 @@ def make_gradcam_heatmap(image, used_model, last_conv_name: str, pred_index: int
     return heatmap
 
 
-
 def cnn_model(image_shape=(150, 150, 1), is_feature=False):
     num_conv_filters = 32
     max_pool_size = (2, 2)
@@ -62,9 +63,7 @@ def cnn_model(image_shape=(150, 150, 1), is_feature=False):
             kernel_size=(conv_kernel_size),
             input_shape=imag_shape,
             activation="relu",
-            kernel_regularizer=L1L2(
-                l1=0.1e-4, l2=0.1e-5
-            ),
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),
         )
     )
     model.add(MaxPooling2D(pool_size=max_pool_size))
@@ -77,9 +76,7 @@ def cnn_model(image_shape=(150, 150, 1), is_feature=False):
             kernel_size=(conv_kernel_size),
             input_shape=imag_shape,
             activation="relu",
-            kernel_regularizer=L1L2(
-                l1=0.1e-4, l2=0.1e-5
-            ),
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),
         )
     )
     model.add(MaxPooling2D(pool_size=max_pool_size))
@@ -92,9 +89,7 @@ def cnn_model(image_shape=(150, 150, 1), is_feature=False):
             kernel_size=(conv_kernel_size),
             input_shape=imag_shape,
             activation="relu",
-            kernel_regularizer=L1L2(
-                l1=0.1e-4, l2=0.1e-5
-            ),
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),
         )
     )
     model.add(MaxPooling2D(pool_size=max_pool_size))
@@ -230,10 +225,10 @@ def snn_base_cnn_model(image_shape=(150, 150, 1)):
             input_shape=imag_shape,
             activation="relu",
             data_format="channels_last",
-            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5), # Comment for SNN CEDAR
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),  # Comment for SNN CEDAR
         )
     )
-    #model.add(BatchNormalization(epsilon=1e-05, axis=-1, momentum=0.9)) # Uncomment FOR SNN CEDAR
+    # model.add(BatchNormalization(epsilon=1e-05, axis=-1, momentum=0.9)) # Uncomment FOR SNN CEDAR
     model.add(MaxPool2D(pool_size=max_pool_size))
     model.add(Dropout(dropout_prob))
 
@@ -245,10 +240,10 @@ def snn_base_cnn_model(image_shape=(150, 150, 1)):
             input_shape=imag_shape,
             activation="relu",
             data_format="channels_last",
-            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5), # Comment for SNN CEDAR
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),  # Comment for SNN CEDAR
         )
     )
-    #model.add(BatchNormalization(epsilon=1e-06, axis=-1, momentum=0.9)) # Uncomment FOR SNN CEDAR
+    # model.add(BatchNormalization(epsilon=1e-06, axis=-1, momentum=0.9)) # Uncomment FOR SNN CEDAR
     model.add(MaxPool2D(pool_size=max_pool_size))
     model.add(Dropout(dropout_prob))
     # 3. Layer
@@ -259,7 +254,7 @@ def snn_base_cnn_model(image_shape=(150, 150, 1)):
             input_shape=imag_shape,
             activation="relu",
             data_format="channels_last",
-            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5), # Comment for SNN CEDAR
+            kernel_regularizer=L1L2(l1=0.1e-4, l2=0.1e-5),  # Comment for SNN CEDAR
             name="last_conv",
         )
     )
