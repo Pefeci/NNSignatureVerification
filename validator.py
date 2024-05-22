@@ -7,7 +7,7 @@ from tensorflow.keras.models import load_model
 
 import functions
 import loader
-from conf import FEATURES
+from conf import FEATURES, MODEL_DIR
 from functions import overlay_heatmap, prediction_to_label, visualize_with_shap
 from model import make_gradcam_heatmap
 
@@ -21,7 +21,7 @@ def get_model(model_dir: str):
     return models[index]
 
 
-def load_trained_model(model_path, method, feature_type):
+def load_trained_model(model_path: str, method, feature_type: str):
     if method == "SNN" and feature_type == "wavelet":
         model = load_model(
             model_path,
@@ -43,7 +43,7 @@ def load_trained_model(model_path, method, feature_type):
     return model
 
 
-def get_feature_and_method(model_path, method=None):
+def get_feature_and_method(model_path: str, method=None):
     if "CNN" in model_path:
         method = "CNN"
     elif "SNN" in model_path:
@@ -55,8 +55,11 @@ def get_feature_and_method(model_path, method=None):
                 method = "CNN"
             elif is_cnn == "0":
                 method = "SNN"
+        elif method == 1:
+            method = "CNN"
         else:
-            method = method
+            method = "SNN"
+
     for feature_type in FEATURES:
         if feature_type == "local":
             feature_type = "local."
@@ -81,15 +84,15 @@ def get_feature_and_method(model_path, method=None):
 
 
 def evaluate_model(
-    model_path,
-    dataset,
-    method,
-    feature_type,
-    data_dir="test",
-    image_width=150,
-    image_height=150,
-    augmented=False,
-    size=0,
+        model_path: str,
+        dataset: str,
+        method,
+        feature_type: str,
+        data_dir: str = "test",
+        image_width: int = 150,
+        image_height: int = 150,
+        augmented: bool = False,
+        size: int = 0,
 ):
     model = load_trained_model(model_path, method, feature_type)
     if method == "CNN":
@@ -107,7 +110,7 @@ def evaluate_model(
                 data, is_pair=False, feature_type=feature_type
             )
             result = model.evaluate(
-                x=([data[:,], feature[:,]]),
+                x=([data[:, ], feature[:, ]]),
                 y=labels,
             )
         elif feature_type == "local_solo":
@@ -157,10 +160,10 @@ def evaluate_model(
 
 
 def model_evaluation(
-    data_dir="test",
-    dataset="czech_test",
-    model_dir="models/server/czech",
-    model_path=None,
+        data_dir: str = "test",
+        dataset: str = "czech_test",
+        model_dir: str = MODEL_DIR,
+        model_path: str = None,
 ):
     if model_path is None:
         model_path = get_model(model_dir)
@@ -169,7 +172,7 @@ def model_evaluation(
 
     width = int(input("Image width: "))
     height = int(input("Image height: "))
-    augment_input = input("Augment image (y/n): ")
+    augment_input = input("Augment data (y/n): ")
     if augment_input == "n" or augment_input == "N":
         augmented = False
     else:
@@ -191,7 +194,7 @@ def model_evaluation(
     return
 
 
-def predict_images(model_path, image_array, method, feature_type):
+def predict_images(model_path: str, image_array, method: str, feature_type: str):
     model = load_trained_model(model_path, method, feature_type)
     if feature_type != "None":
         if method == "CNN":
@@ -205,7 +208,7 @@ def predict_images(model_path, image_array, method, feature_type):
 
     if method == "CNN":
         if feature_type != "None" and feature_type != "local_solo":
-            result = model.predict(x=([image_array[:,], feature[:,]]))
+            result = model.predict(x=([image_array[:, ], feature[:, ]]))
         elif feature_type == "local_solo":
             result = model.evaluate(x=feature)
             result = result[:1]
@@ -234,7 +237,7 @@ def predict_images(model_path, image_array, method, feature_type):
 
 
 def model_prediction(
-    img_path_array, method=None, model_dir="models/server/czech", model_path=None
+        img_path_array, method=None, model_dir: str = MODEL_DIR, model_path: str = None
 ):
     ans = -1
     if model_path is None:
@@ -247,27 +250,27 @@ def model_prediction(
     if ans == 1 or ans == 2:
         save_path = input("Save interpretation? No/save_path: ")
         if (
-            save_path == "No"
-            or save_path == "no"
-            or save_path == "n"
-            or save_path == "N"
+                save_path == "No"
+                or save_path == "no"
+                or save_path == "n"
+                or save_path == "N"
         ):
             save_path = None
     image_array = []
     for image_path in img_path_array:
         if method == "CNN":
-            image = loader.convert_to_image(image_path, img_w=width, img_h=height)
+            image = loader.convert_to_image(image_path, image_width=width, image_height=height)
             image_array.append(image)
         else:
-            pair1 = loader.convert_to_image(image_path[0], img_w=width, img_h=height)
-            pair2 = loader.convert_to_image(image_path[1], img_w=width, img_h=height)
+            pair1 = loader.convert_to_image(image_path[0], image_width=width, image_height=height)
+            pair2 = loader.convert_to_image(image_path[1], image_width=width, image_height=height)
             image_array.append([pair1, pair2])
     image_array = np.array(image_array, dtype=np.float32)
 
     predictions = predict_images(model_path, image_array, method, feature_type)
     labels = functions.prediction_to_label(predictions)
     for i, prediction in enumerate(predictions):
-        print(f"For image {i+1} predicted {labels[i]} with probability {prediction}")
+        print(f"For image {i + 1} predicted {labels[i]} with probability {prediction}")
     if ans == 1:
         if len(image_array) <= 1:
             shap_visualization(
@@ -307,7 +310,7 @@ def model_prediction(
     return
 
 
-def load_test_and_predict(model, data_dir="test", dataset="czech_test"):
+def load_test_and_predict(model, data_dir: str = "test", dataset: str = "czech_test"):
     data, labels = loader.loader_for_cnn(data_dir=data_dir, dataset=dataset)
     data, labels = functions.shuffle_data(data, labels)
     nu_preds = 1
@@ -320,11 +323,11 @@ def load_test_and_predict(model, data_dir="test", dataset="czech_test"):
 
 
 def shap_visualization(
-    img_path=None,
-    save_path=None,
-    model_path="models/server/czech/CNN_cz_train_czech_None.h5",
-    data=None,
-    prediction=None,
+        img_path: str = None,
+        save_path: str = None,
+        model_path: str = "models/server/czech/CNN_cz_train_czech_None.h5",
+        data=None,
+        prediction=None,
 ):
     model = load_model(model_path)
     if img_path is None and data is None and prediction is None:
@@ -343,11 +346,11 @@ def shap_visualization(
 
 
 def gradcam_visualization(
-    img_path=None,
-    save_path=None,
-    model_path="models/server/czech/CNN_cz_train_czech_None.h5",
-    data=None,
-    prediction=None,
+        img_path: str = None,
+        save_path: str = None,
+        model_path: str = "models/server/czech/CNN_cz_train_czech_None.h5",
+        data=None,
+        prediction=None,
 ):
     alpha = 0.4
     model = load_model(model_path)
@@ -392,7 +395,7 @@ def gradcam_visualization(
 
 
 def validator_for_package(
-    datadir="models/server/package", feature_type="None", method="CNN"
+        datadir: str = "models/server/package", feature_type: str = "None", method: str = "CNN"
 ):
     if feature_type == "local":
         feature_type = "local."
@@ -426,7 +429,7 @@ def validator_for_package(
     return results
 
 
-def validate_czech_on_best_package(datadir="models/server/package"):
+def validate_czech_on_best_package(datadir: str = "models/server/package"):
     CNN_models = [
         "CNN_cedar_strokes.h5",
         "CNN_dutch_histogram.h5",

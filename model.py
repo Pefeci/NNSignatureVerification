@@ -25,7 +25,6 @@ import functions
 
 
 def make_gradcam_heatmap(image, used_model, last_conv_name: str, pred_index):
-
     grad_model = models.Model(
         used_model.inputs,
         [used_model.get_layer(last_conv_name).output, used_model.output],
@@ -48,7 +47,7 @@ def make_gradcam_heatmap(image, used_model, last_conv_name: str, pred_index):
     return heatmap
 
 
-def cnn_model(image_shape=(150, 150, 1), is_feature=False):
+def cnn_model(image_shape=(150, 150, 1), is_feature: bool = False):
     num_conv_filters = 32
     max_pool_size = (2, 2)
     conv_kernel_size = (3, 3)
@@ -142,7 +141,7 @@ def cnn_local_features(image_shape=(15, 15, 1)):
     return model
 
 
-def cnn_feature_model(image_shape=(150, 150, 1), feature_shape=None, feature_type=None):
+def cnn_feature_model(image_shape=(150, 150, 1), feature_shape=None, feature_type: str = None):
     image = Input(shape=(image_shape), name="image")
 
     if feature_type == "local_solo":
@@ -272,8 +271,7 @@ def snn_base_cnn_model(image_shape=(150, 150, 1)):
     return model
 
 
-def snn_model(image_shape=(150, 150, 1), feature_shape=None, feature_type=None):
-
+def snn_model(image_shape=(150, 150, 1), feature_shape=None, feature_type: str = None):
     if feature_type == "local_solo":
         feature1 = Input(shape=feature_shape, name="patch_input_image1_1")
         feature2 = Input(shape=feature_shape, name="patch_input_image2_2")

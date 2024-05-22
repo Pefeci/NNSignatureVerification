@@ -52,3 +52,5 @@ DATASET_SIGNATURES_PER_PERSON = {
     "czech_org": 24,
     "czech_forg": 24,
 }
+
+MODEL_DIR = "models/server/czech"

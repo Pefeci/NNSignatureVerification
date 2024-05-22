@@ -21,7 +21,7 @@ from PIL import Image
 from conf import DATASET_NUM_CLASSES, DATASET_SIGNATURES_PER_PERSON
 
 
-def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
+def create_data(data_dir: str, dataset: str = "cedar", is_genuine: bool = True, gdps_size: int = None):
     is_all = False
     is_all_test = False
     if dataset == "all_test":
@@ -194,9 +194,9 @@ def create_data(data_dir, dataset="cedar", is_genuine=True, gdps_size=None):
     return persons
 
 
-def convert_to_image(image_path, img_w=150, img_h=150):
+def convert_to_image(image_path: str, image_width: int = 150, image_height: int = 150):
     img = Image.open(image_path)
-    img = img.resize((img_w, img_h))
+    img = img.resize((image_width, image_height))
     img = img.convert("L")
     img = img.point(lambda p: 255 if p > 210 else 0)  # Thresholding
     img = img.convert("1")  # udela to to co chci?? ANO
@@ -206,8 +206,8 @@ def convert_to_image(image_path, img_w=150, img_h=150):
 
 
 # Augmentations:
-def rand_rotate(imag):
-    img = imag.copy()
+def rand_rotate(image):
+    img = image.copy()
     w = img.shape[1]
     h = img.shape[0]
     if np.random.randint(0, 2) == 0:
@@ -230,8 +230,8 @@ def rand_rotate(imag):
     return img
 
 
-def rand_translation(imag):
-    img = imag.copy()
+def rand_translation(image):
+    img = image.copy()
     shift = 10.0
     width = img.shape[1]
     height = img.shape[0]
@@ -255,8 +255,8 @@ def rand_translation(imag):
     return img
 
 
-def rand_zoom(imag):
-    img = imag.copy()
+def rand_zoom(image):
+    img = image.copy()
     zoom = float(np.random.randint(8, 12)) / 10
     cy, cx = [i / 2 for i in img.shape[:-1]]
     matrix = cv2.getRotationMatrix2D((cx, cy), 0, zoom)
@@ -271,8 +271,8 @@ def rand_zoom(imag):
     return img
 
 
-def rand_shear(imag):
-    img = imag.copy()
+def rand_shear(image):
+    img = image.copy()
     axe = np.random.randint(0, 2)
     width = img.shape[1]
     height = img.shape[0]
@@ -292,8 +292,8 @@ def rand_shear(imag):
     return img
 
 
-def rand_noise(imag):
-    img = imag.copy()
+def rand_noise(image):
+    img = image.copy()
     gaussian_noise = np.random.normal(0, 0.3, img.shape)
     img += gaussian_noise
     img = np.clip(img, 0, 1)
@@ -301,59 +301,39 @@ def rand_noise(imag):
 
 
 # Augmentator
-def augment_image(
-    img,
-    rotate=True,
-    shear=True,
-    zoom=True,
-    shift=True,
-    gaussian_noice=True,
-    save_path=None,
-):
+def augment_image(image):
     augmented_images = []
 
-    # Random rotation (plus minus 10 degrees)
-    rotated_image = rand_rotate(img)
+    rotated_image = rand_rotate(image)
     rotated_image = rotated_image[..., np.newaxis]
     augmented_images.append(rotated_image)
 
-    # Random shear
-    sheared_image = rand_shear(img)
-    sheared_image = cv2.resize(sheared_image, (img.shape[0], img.shape[1]))
+    sheared_image = rand_shear(image)
+    sheared_image = cv2.resize(sheared_image, (image.shape[0], image.shape[1]))
     sheared_image = sheared_image[..., np.newaxis]
     augmented_images.append(sheared_image)
 
-    # Random zoom
-    resized_image = rand_zoom(img)
+    resized_image = rand_zoom(image)
     resized_image = resized_image[..., np.newaxis]
     augmented_images.append(resized_image)
 
-    # Random shift
-    shifted_image = rand_translation(img)
+    shifted_image = rand_translation(image)
     shifted_image = shifted_image[..., np.newaxis]
     augmented_images.append(shifted_image)
 
-    # Gaussian noise
-    noisy_image = rand_noise(img)
+    noisy_image = rand_noise(image)
     augmented_images.append(noisy_image)
 
-    # Save augmented images if specified
-    if save_path:
-        for i, augmented_image in enumerate(augmented_images):
-            save_image_path = save_path.format(i)
-            ndimage.imsave(save_image_path, augmented_image.squeeze())
-
-    # plot_images(augmented_images, ['otočený', 'smýknutý', 'přiblížený', 'posunutý', 's gaussovým šumem'], title="Augmentace")
     return augmented_images
 
 
 def convert_array_to_image_labels(
-    image_path_array,
-    image_width=150,
-    image_height=150,
-    augmented=False,
-    genuine=False,
-    size=None,
+        image_path_array,
+        image_width: int = 150,
+        image_height: int = 150,
+        augmented: bool = False,
+        genuine: bool = False,
+        size: int = None,
 ):
     labels = []
     image_array = []
@@ -365,7 +345,7 @@ def convert_array_to_image_labels(
             else:
                 index += 1
         for img in person:
-            img = convert_to_image(img, img_w=image_width, img_h=image_height)
+            img = convert_to_image(img, image_width=image_width, image_height=image_height)
             image_array.append(img)
             labels.append(1 if genuine else 0)
             if augmented:
@@ -374,7 +354,7 @@ def convert_array_to_image_labels(
                 # augmented_images.insert(0,img)
                 # augmented_labels = ['Original', 'Rotate', 'Shear', 'Zoom', 'Transition', 'Gaussian noise']
                 # plot_images(augmented_images,  num_column=6,
-                #            title='Upravené obrázky') #THIS ONLY FOR SHOWING PURPOSES
+                #            title='Augmented images') #THIS ONLY FOR SHOWING PURPOSES
                 if genuine:
                     labels.extend([1 for i in range(len(augmented_images))])
                 else:
@@ -392,7 +372,7 @@ def convert_array_to_image_labels(
     return image_array, labels
 
 
-def combine_orig_forg(orig_data, forg_data, orig_labels, forg_labels, shuffle=True):
+def combine_orig_forg(orig_data, forg_data, orig_labels, forg_labels, shuffle: bool = True):
     data = orig_data + forg_data
     labels = orig_labels + forg_labels
     if shuffle:
@@ -403,13 +383,13 @@ def combine_orig_forg(orig_data, forg_data, orig_labels, forg_labels, shuffle=Tr
 
 # CNN Loader
 def loader_for_cnn(
-    data_dir="data",
-    image_width=150,
-    image_height=150,
-    dataset="cedar",
-    augmented=False,
-    size=None,
-    shuffle=True,
+        data_dir: str = "data",
+        image_width: int = 150,
+        image_height: int = 150,
+        dataset: str = "cedar",
+        augmented: str = False,
+        size: int = None,
+        shuffle: bool = True,
 ):
     if size:
         size /= 2
@@ -451,7 +431,8 @@ def loader_for_cnn(
 
 # SNN LOADER
 def convert_pairs_to_image_pairs(
-    pair_array, labels, img_w=150, img_h=150, output_size=0, augmented=False
+        pair_array, labels, image_width: int = 150, image_height: int = 150, output_size: int = 0,
+        augmented: bool = False
 ):
     image_pair_array = []
     new_labels = []
@@ -462,8 +443,8 @@ def convert_pairs_to_image_pairs(
         for pair in pair_array:
             if index == output_size:
                 break
-            image1 = convert_to_image(pair[0], img_w=img_w, img_h=img_h)
-            image2 = convert_to_image(pair[1], img_w=img_w, img_h=img_h)
+            image1 = convert_to_image(pair[0], image_width=image_width, image_height=image_height)
+            image2 = convert_to_image(pair[1], image_width=image_width, image_height=image_height)
             image_pair_array.append((image1, image2))
             new_labels.append(labels[index])
             if augmented:
@@ -494,8 +475,8 @@ def convert_pairs_to_image_pairs(
         len(pair_array), size=output_size, replace=False, shuffle=True
     )
     for i in indieces:
-        image1 = convert_to_image(pair_array[i][0], img_w=img_w, img_h=img_h)
-        image2 = convert_to_image(pair_array[i][1], img_w=img_w, img_h=img_h)
+        image1 = convert_to_image(pair_array[i][0], image_width=image_width, image_height=image_height)
+        image2 = convert_to_image(pair_array[i][1], image_width=image_width, image_height=image_height)
         image_pair_array.append((image1, image2))
         new_labels.append(labels[i])
         if augmented:
@@ -532,7 +513,7 @@ def make_pairs(orig_data, forg_data):
         orig_pairs.extend(list(itertools.combinations(orig, 2)))
         for i in range(len(forg)):
             forg_pairs.extend(
-                list(itertools.product(orig[i : i + 1], random.sample(forg, 12)))
+                list(itertools.product(orig[i: i + 1], random.sample(forg, 12)))
             )
     data_pairs = orig_pairs + forg_pairs
     orig_pair_labels = [1] * len(orig_pairs)
@@ -548,15 +529,14 @@ def make_pairs(orig_data, forg_data):
 
 
 def loader_for_snn(
-    data_dir="data",
-    image_width=150,
-    image_height=150,
-    dataset="cedar",
-    augmented=False,
-    size=0,
-    gdps_size=None,
+        data_dir: str = "data",
+        image_width: int = 150,
+        image_height: int = 150,
+        dataset: str = "cedar",
+        augmented: bool = False,
+        size: int = 0,
+        gdps_size: int = None,
 ):
-
     if augmented and size != 0:
         size /= 6
         size = int(size)
@@ -576,8 +556,8 @@ def loader_for_snn(
     data_pairs, data_labels = convert_pairs_to_image_pairs(
         data_pairs,
         data_labels,
-        img_w=image_width,
-        img_h=image_height,
+        image_width=image_width,
+        image_height=image_height,
         output_size=size,
         augmented=augmented,
     )

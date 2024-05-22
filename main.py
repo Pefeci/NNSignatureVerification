@@ -8,31 +8,29 @@ import functions
 
 tf.config.optimizer.set_experimental_options({"layout_optimizer": False})
 
-
 import loader
 import model
-from conf import DATASETS, DATASETS_TEST, FEATURES
+from conf import DATASETS, DATASETS_TEST, FEATURES, MODEL_DIR
 from validator import model_evaluation, model_prediction
 
 # IMG_HEIGHT = 150
 # IMG_WIDTH = 150
 CHANNELS = 1
 
-
 image_shape = (None, 100, 100, 3)
 
 
 def cnn_train(
-    epochs=100,
-    batch_size=32,
-    img_width=150,
-    img_height=150,
-    dataset="cedar",
-    augmented=False,
-    save_name=None,
-    size=None,
-    feature_type=None,
-    show_fig=False,
+        epochs: int = 100,
+        batch_size: int = 32,
+        img_width: int = 150,
+        img_height: int = 150,
+        dataset: str = "cedar",
+        augmented: bool = False,
+        save_name: str = None,
+        size: int = None,
+        feature_type: str = None,
+        show_fig: bool = False,
 ):
     if save_name is None:
         csv_name = "CNN"
@@ -76,13 +74,13 @@ def cnn_train(
 
     if feature_type is not None and feature_type != "local_solo":
         hist = CNNMODEL.fit(
-            x=([data[:,], feature[:,]]),
+            x=([data[:, ], feature[:, ]]),
             y=labels,
             batch_size=batch_size,
             epochs=epochs,
             validation_split=0.2,
             shuffle=True,
-            callbacks=functions.callbacks_schelude_lr((csv_name + ".csv")),
+            callbacks=functions.callbacks_schedule_lr((csv_name + ".csv")),
         )
     elif feature_type == "local_solo":
         hist = CNNMODEL.fit(
@@ -92,7 +90,7 @@ def cnn_train(
             epochs=epochs,
             validation_split=0.2,
             shuffle=True,
-            callbacks=functions.callbacks_schelude_lr((csv_name + ".csv")),
+            callbacks=functions.callbacks_schedule_lr((csv_name + ".csv")),
         )
     else:
         hist = CNNMODEL.fit(
@@ -102,7 +100,7 @@ def cnn_train(
             epochs=epochs,
             validation_split=0.2,
             shuffle=True,
-            callbacks=functions.callbacks_schelude_lr((csv_name + ".csv")),
+            callbacks=functions.callbacks_schedule_lr((csv_name + ".csv")),
         )
     # CNNMODEL.summary()
 
@@ -114,17 +112,17 @@ def cnn_train(
 
 
 def snn_train(
-    epochs=100,
-    batch_size=32,
-    img_width=150,
-    img_height=150,
-    dataset="cedar",
-    augmented=False,
-    size=2000,
-    feature_type=None,
-    gdps_size=None,
-    save_name=None,
-    show_fig=False,
+        epochs: int = 100,
+        batch_size: int = 32,
+        img_width: int = 150,
+        img_height: int = 150,
+        dataset: str = "cedar",
+        augmented: bool = False,
+        size: int = 2000,
+        feature_type: str = None,
+        gdps_size: int = None,
+        save_name: str = None,
+        show_fig: bool = False,
 ):
     if save_name is None:
         csv_name = "SNN"
@@ -179,7 +177,7 @@ def snn_train(
             epochs=epochs,
             shuffle=True,
             validation_split=0.2,
-            callbacks=functions.callbacks_schelude_lr((csv_name + ".csv")),
+            callbacks=functions.callbacks_schedule_lr((csv_name + ".csv")),
         )
     elif feature_type == "local_solo":
         hist = SNNMODEL.fit(
@@ -189,7 +187,7 @@ def snn_train(
             epochs=epochs,
             shuffle=True,
             validation_split=0.2,
-            callbacks=functions.callbacks_schelude_lr((csv_name + ".csv")),
+            callbacks=functions.callbacks_schedule_lr((csv_name + ".csv")),
         )
     else:
         hist = SNNMODEL.fit(
@@ -199,7 +197,7 @@ def snn_train(
             epochs=epochs,
             shuffle=True,
             validation_split=0.2,
-            callbacks=functions.callbacks_schelude_lr((csv_name + ".csv")),
+            callbacks=functions.callbacks_schedule_lr((csv_name + ".csv")),
         )
     # SNN.summary()
 
@@ -211,8 +209,8 @@ def snn_train(
         functions.plot_training(hist)
 
 
-def choose_dataset(type):
-    if type == "test":
+def choose_dataset(dataset_type: str):
+    if dataset_type == "test":
         datasets = DATASETS_TEST
     else:
         datasets = DATASETS
@@ -320,17 +318,17 @@ def handle_evaluate():
     dataset = choose_dataset("test")
     model_path = input("Enter path to model (or press ENTER): ")
     if model_path == "":
-        model_dir = input("Enter directory with models (or press ENTER)")
+        model_dir = input("Enter directory with models (or press ENTER): ")
         if model_dir == "":
-            model_dir = "models/server/czech"
+            model_dir = MODEL_DIR
         model_evaluation(data_dir, dataset, model_dir=model_dir)
     else:
         model_evaluation(data_dir, dataset, model_path=model_path)
 
 
-def load_prediction_data(method):
+def load_prediction_data(method: int):
     image_array = []
-    size = int(input("Enter number of signatures for prediction: "))
+    size = int(input("Enter data size for prediction: "))
     for i in range(size):
         if method == 1:
             image_path = input("Enter path to image: ")
@@ -345,15 +343,15 @@ def load_prediction_data(method):
 def handle_predict():
     method = -1
     while method != 0:
-        method = int(input("Would you like to predict by CNN(1) or SNN(2), exit(0)"))
+        method = int(input("Would you like to predict by CNN(1) or SNN(2), exit(0): "))
         if method == 0:
             break
         image_array = load_prediction_data(method)
         model_path = input("Enter path to model (or press ENTER): ")
         if model_path == "":
-            model_dir = input("Enter directory with models (or press ENTER)")
+            model_dir = input("Enter directory with models (or press ENTER): ")
             if model_dir == "":
-                model_dir = "models/server/czech"
+                model_dir = MODEL_DIR
             model_prediction(image_array, method=method, model_dir=model_dir)
         else:
             model_prediction(image_array, method=method, model_path=model_path)

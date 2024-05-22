@@ -29,11 +29,11 @@ def show_single_image(img):
 
 
 def plot_images(
-    image_array,
-    image_array_label=[],
-    num_column=5,
-    title="Images in dataset",
-    save_path=None,
+        image_array,
+        image_array_label=[],
+        num_column: int = 5,
+        title: str = "Images in dataset",
+        save_path: str = None,
 ):
     fig, axes = plt.subplots(1, num_column, figsize=(20, 20))
     fig.suptitle(title, fontsize=16)
@@ -71,7 +71,7 @@ def plot_training(hist):
 
 
 def visualize_snn_sample_signature_for_signer(
-    orig_data, forg_data, image_width=200, image_height=200
+        orig_data, forg_data, image_width: int = 150, image_height: int = 150
 ):
     k = np.random.randint(len(orig_data))
     orig_data_signature = random.sample(orig_data[k], 2)
@@ -90,7 +90,7 @@ def visualize_snn_sample_signature_for_signer(
     plot_images(img_array_to_show, img_array_label, num_column=len(img_array_to_show))
 
 
-def show_pair(pairs, labels, title="Image pairs", columns=2, rows=1):
+def show_pair(pairs, labels, title: str = "Image pairs", columns: int = 2, rows: int = 1):
     fig, axes = plt.subplots(rows, columns, figsize=(columns * 5, rows * 2))
     fig.suptitle(title)
     if rows == 1:
@@ -114,18 +114,18 @@ def show_pair(pairs, labels, title="Image pairs", columns=2, rows=1):
 
 
 def visualize_snn_pair_sample(
-    pair_array, label_array, title="Pair sample", numer_of_samples=5
+        pair_array, label_array, title: str = "Pair sample", number_of_samples: int = 5
 ):
     pairs = []
     label = []
-    for i in range(numer_of_samples):
+    for i in range(number_of_samples):
         k = np.random.randint(0, len(pair_array))
         img1 = pair_array[k][0]
         img2 = pair_array[k][1]
         pairs.append([img1, img2])
         label.append(["Genuine", "Genuine" if label_array[k] == 1 else "Forgery"])
 
-    show_pair(pairs, label, title=title, columns=2, rows=numer_of_samples)
+    show_pair(pairs, label, title=title, columns=2, rows=number_of_samples)
 
 
 # Euclidan distance
@@ -141,15 +141,14 @@ def euclidan_dist_output_shape(shapes):
     return (shape1[0], 1)
 
 
-def contrastive_loss(y_true, y_pred):
-    margin = 1
-    return K.mean(
-        y_true * K.square(y_pred)
-        + (1 - y_true) * K.square(K.maximum(margin - y_pred, 0))
+def EarlyStopping():
+    stopper = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss", patience=10, mode="min", min_delta=0.0001, verbose=1
     )
+    return stopper
 
 
-def callbacks_Stop_checkpoint():
+def callbacks_stop_checkpoint():
     callbacks = [
         EarlyStopping(patience=12, verbose=1),
         ReduceLROnPlateau(factor=0.1, patience=5, min_lr=0.000001, verbose=1),
@@ -160,13 +159,6 @@ def callbacks_Stop_checkpoint():
     return callbacks
 
 
-def EarlyStopping():
-    stopper = tf.keras.callbacks.EarlyStopping(
-        monitor="val_loss", patience=10, mode="min", min_delta=0.0001, verbose=1
-    )
-    return stopper
-
-
 def scheduler(epoch, lr):
     if epoch < 10:
         return lr
@@ -174,14 +166,12 @@ def scheduler(epoch, lr):
         return lr * tf.math.exp(-0.1)
 
 
-def CSVLogger(filename):
-
+def CSVLogger(filename:str):
     logger = tf.keras.callbacks.CSVLogger(filename, separator=",", append=True)
     return logger
 
 
-def callbacks_schelude_lr(filename):
-
+def callbacks_schedule_lr(filename:str):
     callback = [
         LearningRateScheduler(scheduler, verbose=10),
         CSVLogger(filename),
@@ -200,11 +190,11 @@ def get_image_strokes(img):
     return strokes
 
 
-def image_for_local(image, size=15):
+def image_for_local(image, size: int = 15):
     small_image_array = []
     for row in range(0, image.shape[0], size):
         for col in range(0, image.shape[1], size):
-            small_image = image[row : row + size, col : col + size]
+            small_image = image[row: row + size, col: col + size]
             small_image_array.append(small_image)
     small_image_array = np.array(small_image_array, dtype="float32")
     return small_image_array
@@ -245,14 +235,13 @@ def plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns):
     plt.show(block=True)
 
 
-# Histogram
-def count_none_white_pixels(image, count_axis=False, show=False):
+def count_none_white_pixels(image, count_axis: bool = True, show: bool = False):
     pixel_count = np.sum(image == 0)
     if count_axis:
         non_white_pixels_rows = np.sum(image == 0, axis=1)
         non_white_pixels_columns = np.sum(image == 0, axis=0)
         if show:
-             plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns)
+            plot_non_white_pixels(non_white_pixels_rows, non_white_pixels_columns)
         return pixel_count, non_white_pixels_rows, non_white_pixels_columns
     return pixel_count
 
@@ -320,7 +309,7 @@ def calculate_aspect_ratio(image):
 
 def calculate_tri_surface_area(image):
     tri_width = image.shape[1] // 3
-    parts = [image[:, i * tri_width : (i + 1) * tri_width] for i in range(3)]
+    parts = [image[:, i * tri_width: (i + 1) * tri_width] for i in range(3)]
     areas = [calculate_normalized_shape(part) for part in parts]
     return areas
 
@@ -328,7 +317,7 @@ def calculate_tri_surface_area(image):
 def six_fold_surface(image):
     image = image[:, :, 0]
     part_width = image.shape[1] // 3
-    parts = [image[:, i * part_width : (i + 1) * part_width] for i in range(3)]
+    parts = [image[:, i * part_width: (i + 1) * part_width] for i in range(3)]
     all_features = []
     for part in parts:
         features = []
@@ -348,36 +337,36 @@ def six_fold_surface(image):
             ]
             Mx = cv2.moments(
                 part[
-                    boundingbox_height[0] : boundingbox_height[1],
-                    boundingbox_width[0] : boundingbox_width[1],
+                boundingbox_height[0]: boundingbox_height[1],
+                boundingbox_width[0]: boundingbox_width[1],
                 ]
             )
             center_of_mass_x = Mx["m10"] / Mx["m00"] if Mx["m00"] != 0 else 0
             center_of_mass_y = Mx["m01"] / Mx["m00"] if Mx["m00"] != 0 else 0
             area_above_center = np.sum(
                 part[
-                    boundingbox_height[0] : (
+                boundingbox_height[0]: (
                         boundingbox_height[0] + int(center_of_mass_y)
-                    ),
-                    boundingbox_width[0] : boundingbox_width[1],
+                ),
+                boundingbox_width[0]: boundingbox_width[1],
                 ]
                 == 0
             )
             area_bellow_center = np.sum(
                 part[
-                    (
+                (
                         boundingbox_height[0] + int(center_of_mass_y)
-                    ) : boundingbox_height[1],
-                    boundingbox_width[0] : boundingbox_width[1],
+                ): boundingbox_height[1],
+                boundingbox_width[0]: boundingbox_width[1],
                 ]
                 == 0
             )
             area_above_center /= (
-                boundingbox_height[0] + int(center_of_mass_y)
-            ) * bounding_box[0]
+                                         boundingbox_height[0] + int(center_of_mass_y)
+                                 ) * bounding_box[0]
             area_bellow_center /= (
-                part.shape[0] - (boundingbox_height[0] + int(center_of_mass_y))
-            ) * bounding_box[0]
+                                          part.shape[0] - (boundingbox_height[0] + int(center_of_mass_y))
+                                  ) * bounding_box[0]
             center_of_mass_x = center_of_mass_x / (bounding_box[0])  # normalized
             center_of_mass_y = center_of_mass_y / (bounding_box[1])
             bounding_box[0] /= part.shape[1]  # normalized
@@ -391,22 +380,7 @@ def six_fold_surface(image):
     return all_features
 
 
-def save_and_display_gradcam(image, heatmap, cam_path="heatmap.jpg", alpha=0.4):
-    heatmap = np.unit8(255 * heatmap)
-    jet = mpl.colormaps("jet")
-    jet_colors = jet(np.arange(256))[:, :3]
-    jet_heatmap = jet_colors[heatmap]
-    jet_heatmap = utils.array_to_img(jet_heatmap)
-    jet_heatmap = jet_heatmap.resize((image.shape[1], image.shape[0]))
-    jet_heatmap = utils.img_to_array(jet_heatmap)
-
-    superimposed_img = jet_heatmap * alpha + image
-    superimposed_img = utils.array_to_img(superimposed_img)
-    superimposed_img.save(cam_path)
-    show_single_image(superimposed_img)
-
-
-def visualize_with_shap(data, model, pred, save_path=None):
+def visualize_with_shap(data, model, pred, save_path: str = None):
     shap.initjs()
     masker = shap.maskers.Image("inpaint_telea", data[0].shape)
     explainer = shap.Explainer(model, masker)
@@ -482,7 +456,7 @@ def overlay_heatmap(image, heatmap, alpha=0.6, colormap=cv2.COLORMAP_JET):
     return overlaid_image
 
 
-def add_features(data, is_pair=True, feature_type="strokes"):
+def add_features(data, is_pair: bool = True, feature_type: str = "strokes"):
     feature = []
     if feature_type == "strokes":
         if is_pair:
